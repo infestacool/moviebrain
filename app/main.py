@@ -74,6 +74,11 @@ async def get_trivia(
         raise HTTPException(502, f"Trivia lookup failed: {e}")
 
 
+@app.get("/api/display")
+async def display():
+    return config.display_choices()
+
+
 @app.get("/api/image/{source}/{item_id}/{kind}")
 async def image(source: str, item_id: str, kind: str):
     result = await media.fetch_image(source, item_id, kind)
@@ -89,6 +94,7 @@ async def image(source: str, item_id: str, kind: str):
 async def get_settings(request: Request):
     return {
         "settings": config.public_view(),
+        "groups": {"wiki": config.WIKI_SECTIONS, "goofs": config.GOOF_KINDS},
         "auth_disabled_by_env": config.AUTH_DISABLE,
         "callback_urls": {
             "plex": f"{auth.base_url(request)}/auth/plex/callback",

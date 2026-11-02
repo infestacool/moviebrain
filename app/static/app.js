@@ -222,7 +222,7 @@ async function loadTrivia(movie, key) {
   renderTrivia();
 }
 
-// ---- Sources and sections (chosen per device) -------------------------------
+// ---- Sources and sections (chosen on the Settings page) ----------------------
 
 const SOURCES = [["imdb", "IMDb trivia"], ["goofs", "IMDb goofs"], ["wiki", "Wikipedia"], ["omdb", "Ratings & awards"]];
 const SCOPES = [["episode", "This episode"], ["series", "The series"]];
@@ -255,18 +255,21 @@ function groupOf(groups, text) {
   return hit ? hit[0] : "other";
 }
 
-function loadFilters() {
-  let saved = {};
-  try { saved = JSON.parse(store("filters") || "{}"); } catch { /* ignore a corrupt value */ }
-  const all = (list) => Object.fromEntries(list.map(([k]) => [k, true]));
-  return {
-    sources: { ...all(SOURCES), ...saved.sources },
-    scopes: { ...all(SCOPES), ...saved.scopes },
-    wiki: { ...all(WIKI_GROUPS), ...saved.wiki },
-    goofs: { ...all(GOOF_GROUPS), ...saved.goofs },
-  };
+// Everything shows until /api/display says otherwise (set on the Settings page).
+const showAll = (list) => Object.fromEntries(list.map(([k]) => [k, true]));
+state.filters = {
+  sources: { ...showAll(SOURCES), omdb: false },
+  scopes: showAll(SCOPES),
+  wiki: showAll(WIKI_GROUPS),
+  goofs: showAll(GOOF_GROUPS),
+};
+
+async function loadDisplayChoices() {
+  try {
+    const res = await fetch("/api/display");
+    if (res.ok) state.filters = await res.json();
+  } catch { /* keep showing everything */ }
 }
-state.filters = loadFilters();
 
 // kind is "imdb" (trivia) or "goofs", matching the API's field names.
 function imdbItems(kind = "imdb") {
@@ -459,7 +462,7 @@ function renderImdbList(kind, label) {
   if (!state.trivia) { list.replaceChildren(); return; }
   if (!items.length) {
     const why = state.trivia.errors[kind] ? "IMDb didn't respond."
-      : imdbItems(kind).length ? "Everything here is hidden by your Sources choices."
+      : imdbItems(kind).length ? "Everything here is switched off in Settings."
       : `No ${label} for this ${isTv() ? "show" : "movie"}.`;
     list.replaceChildren(el("li", {}, why));
     return;
@@ -504,7 +507,7 @@ function renderWiki() {
   const empty = (a) => !a || (!a.intro.length && !a.sections.length);
   if (empty(w) && empty(ep)) {
     const why = state.trivia.errors.wikipedia ? "Wikipedia didn't respond."
-      : state.trivia.wikipedia || state.trivia.episode_wikipedia ? "Everything here is hidden by your Sources choices."
+      : state.trivia.wikipedia || state.trivia.episode_wikipedia ? "Everything here is switched off in Settings."
       : "No Wikipedia article found.";
     box.replaceChildren(el("p", { className: "loading" }, why));
     return;
@@ -584,61 +587,6 @@ $("back-to-playing").onclick = () => {
   render();
 };
 
-function renderSourcesForm() {
-  const f = state.filters;
-  const group = (title, key, options, dependsOn) => {
-    const box = el("div", { className: "filter-group" });
-    if (dependsOn) box.dataset.dependsOn = dependsOn;
-    box.append(el("h3", {}, title));
-    const chips = el("div", { className: "chips" });
-    for (const [value, label] of options) {
-      const chip = el("label", { className: "chip" });
-      const input = el("input", { type: "checkbox", checked: !!f[key][value] });
-      input.onchange = () => { f[key][value] = input.checked; applyFilters(); };
-      chip.append(input, el("span", {}, label));
-      chips.append(chip);
-    }
-    box.append(chips);
-    return box;
-  };
-  $("sources-form").replaceChildren(
-    group("Show", "sources", SOURCES),
-    ...(isTv() ? [group("TV facts about", "scopes", SCOPES)] : []),
-    group("Wikipedia sections", "wiki", WIKI_GROUPS, "wiki"),
-    group("Kinds of goofs", "goofs", GOOF_GROUPS, "goofs"),
-  );
-  updateSourcesForm();
-}
-
-// Grey out section choices for sources that are switched off.
-function updateSourcesForm() {
-  document.querySelectorAll("#sources-form [data-depends-on]").forEach((box) => {
-    box.classList.toggle("off", !state.filters.sources[box.dataset.dependsOn]);
-  });
-}
-
-function applyFilters() {
-  store("filters", JSON.stringify(state.filters));
-  updateSourcesForm();
-  buildDeck();
-  renderTrivia();
-}
-
-$("sources-button").onclick = () => {
-  renderSourcesForm();
-  const dialog = $("sources-dialog");
-  if (dialog.showModal) dialog.showModal(); else dialog.setAttribute("open", "");
-};
-$("sources-dialog").addEventListener("click", (e) => {
-  if (e.target === e.currentTarget) e.currentTarget.close(); // tap outside the sheet closes it
-});
-$("sources-reset").onclick = () => {
-  store("filters", "{}");
-  state.filters = loadFilters();
-  renderSourcesForm();
-  applyFilters();
-};
-
 // One-second tick: progress bar and spotlight auto-advance.
 setInterval(() => {
   if (state.movie) updateProgress();
@@ -667,6 +615,6 @@ $("signout").onclick = async () => {
   location.href = "/login";
 };
 
-loadAuth().then(poll);
+Promise.all([loadAuth(), loadDisplayChoices()]).then(poll);
 setInterval(poll, POLL_MS);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });

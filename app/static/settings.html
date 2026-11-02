@@ -8,87 +8,181 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
+<body class="settings-page">
   <header class="topbar">
     <a class="brand" href="/">← Triviarr</a>
-    <span class="meta">Settings</span>
+    <span class="topbar-title">Settings</span>
   </header>
+
+  <nav class="jump" aria-label="Settings sections">
+    <a href="#servers">Servers</a>
+    <a href="#sources">Sources</a>
+    <a href="#display">Display</a>
+    <a href="#signin">Sign-in</a>
+    <a href="#advanced">Advanced</a>
+  </nav>
 
   <main>
     <form id="form" class="settings" autocomplete="off">
-      <section class="card">
-        <h2>Media servers</h2>
-        <p class="hint">Set up Plex, Jellyfin, or both. At least one is required.</p>
 
-        <fieldset>
-          <legend>Plex</legend>
-          <label>Server URL <input name="plex_url" type="url" placeholder="http://0.0.0.0:32400"></label>
-          <label>Plex token <input name="plex_token" type="password" data-secret></label>
-          <p class="hint">Find your token: open any item in Plex Web → ⋯ → Get Info → View XML, and copy the <code>X-Plex-Token</code> value from the address bar.</p>
-          <div class="row"><button type="button" class="secondary" data-test="plex">Test connection</button><span class="test-result" id="test-plex"></span></div>
-        </fieldset>
+      <!-- Media servers -->
+      <section id="servers" class="group">
+        <header class="group-head">
+          <span class="group-icon" aria-hidden="true">📡</span>
+          <div><h2>Media servers</h2><p>Set up Plex, Jellyfin, or both. At least one is required.</p></div>
+        </header>
 
-        <fieldset>
-          <legend>Jellyfin</legend>
-          <label>Server URL <input name="jellyfin_url" type="url" placeholder="http://0.0.0.0:8096"></label>
-          <label>API key <input name="jellyfin_api_key" type="password" data-secret></label>
-          <p class="hint">Create one in Jellyfin: Dashboard → API Keys → +.</p>
-          <div class="row"><button type="button" class="secondary" data-test="jellyfin">Test connection</button><span class="test-result" id="test-jellyfin"></span></div>
-        </fieldset>
-      </section>
+        <div class="tiles">
+          <article class="tile">
+            <div class="tile-head">
+              <span class="logo logo-plex" aria-hidden="true">P</span>
+              <div class="tile-title"><h3>Plex</h3><span class="status" id="status-plex"></span></div>
+            </div>
+            <label>Server URL <input name="plex_url" type="url" placeholder="http://0.0.0.0:32400"></label>
+            <label>Plex token <input name="plex_token" type="password" data-secret></label>
+            <p class="hint">In Plex Web, open any item → ⋯ → Get Info → View XML, and copy the <code>X-Plex-Token</code> value from the address bar.</p>
+            <div class="row"><button type="button" class="secondary" data-test="plex">Test connection</button><span class="test-result" id="test-plex"></span></div>
+          </article>
 
-      <section class="card">
-        <h2>Display</h2>
-        <label>Only show movies played by <input name="users" placeholder="Everyone (or e.g. chris, kids)"></label>
-        <p class="hint">Comma-separated Plex/Jellyfin usernames. Leave blank to show everyone's movies.</p>
-        <label class="check"><input type="checkbox" name="include_imdb"> Include IMDb trivia</label>
-        <label class="check"><input type="checkbox" name="include_goofs"> Include IMDb goofs (filming mistakes and continuity errors)</label>
-        <label class="check"><input type="checkbox" name="include_wikipedia"> Include Wikipedia</label>
-        <p class="hint">These switch a source off for everyone. Each viewer can also hide sources and sections on their own device with the <b>Sources</b> button.</p>
-        <label>OMDb API key <input name="omdb_api_key" type="password" data-secret placeholder="Optional"></label>
-        <p class="hint">Adds ratings (IMDb, Rotten Tomatoes, Metacritic), awards and box office facts. Get a free key at <a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener">omdbapi.com</a> (1,000 lookups a day; activate it from the email they send).</p>
-        <div class="row"><button type="button" class="secondary" data-test="omdb">Test key</button><span class="test-result" id="test-omdb"></span></div>
-        <label>Wikipedia language <input name="wiki_lang" maxlength="10" placeholder="en"></label>
-      </section>
-
-      <section class="card">
-        <h2>Sign-in</h2>
-        <p id="auth-env-warning" class="warning" hidden>Sign-in is currently switched off by the <code>AUTH_DISABLE</code> setting on the container.</p>
-        <div class="choices">
-          <label class="choice"><input type="radio" name="auth_mode" value="none"><span><b>No sign-in</b><small>Anyone on your network can view the page.</small></span></label>
-          <label class="choice"><input type="radio" name="auth_mode" value="plex"><span><b>Sign in with Plex</b><small>Anyone with access to your Plex server.</small></span></label>
-          <label class="choice"><input type="radio" name="auth_mode" value="oidc"><span><b>Sign in with Pocket ID</b><small>Or another OpenID Connect provider.</small></span></label>
-        </div>
-
-        <div id="auth-plex" class="auth-panel" hidden>
-          <p class="hint">People who can access your Plex server can sign in. The server owner can change settings. Plex sign-in requires a Plex server above, or an allow-list below.</p>
-        </div>
-
-        <div id="auth-oidc" class="auth-panel" hidden>
-          <label>Provider name <input name="oidc_name" placeholder="Pocket ID"></label>
-          <label>Issuer URL <input name="oidc_issuer" type="url" placeholder="https://id.example.com"></label>
-          <label>Client ID <input name="oidc_client_id"></label>
-          <label>Client secret <input name="oidc_client_secret" type="password" data-secret></label>
-          <p class="hint">In Pocket ID: Administration → OIDC Clients → Add. Use this callback URL:</p>
-          <code id="oidc-callback" class="copy"></code>
-        </div>
-
-        <div id="auth-lists" class="auth-panel" hidden>
-          <label>Allowed users <input name="allowed_users" placeholder="Optional"></label>
-          <p class="hint">Comma-separated usernames, emails or (for Pocket ID) groups. With Plex, these are allowed in addition to people who share your server. With Pocket ID, leave blank to allow everyone the provider lets in.</p>
-          <label>Admins <input name="admin_users" placeholder="Optional"></label>
-          <p class="hint">Who can open this settings page. Leave blank for the Plex server owner, or everyone with Pocket ID.</p>
+          <article class="tile">
+            <div class="tile-head">
+              <span class="logo logo-jellyfin" aria-hidden="true">J</span>
+              <div class="tile-title"><h3>Jellyfin</h3><span class="status" id="status-jellyfin"></span></div>
+            </div>
+            <label>Server URL <input name="jellyfin_url" type="url" placeholder="http://0.0.0.0:8096"></label>
+            <label>API key <input name="jellyfin_api_key" type="password" data-secret></label>
+            <p class="hint">In Jellyfin: Dashboard → API Keys → +.</p>
+            <div class="row"><button type="button" class="secondary" data-test="jellyfin">Test connection</button><span class="test-result" id="test-jellyfin"></span></div>
+          </article>
         </div>
       </section>
 
-      <section class="card">
-        <details>
-          <summary>Advanced</summary>
-          <label class="check"><input type="checkbox" name="verify_ssl"> Verify HTTPS certificates</label>
-          <p class="hint">Turn off if a server uses a self-signed certificate.</p>
+      <!-- Sources -->
+      <section id="sources" class="group">
+        <header class="group-head">
+          <span class="group-icon" aria-hidden="true">🧠</span>
+          <div><h2>Sources</h2><p>Choose where trivia comes from and which parts to show.</p></div>
+        </header>
+
+        <div class="tiles">
+          <article class="tile source" data-source="include_imdb">
+            <div class="tile-head">
+              <span class="logo logo-imdb" aria-hidden="true">IMDb</span>
+              <div class="tile-title"><h3>IMDb trivia</h3><p>Behind-the-scenes facts from IMDb's trivia pages.</p></div>
+              <label class="switch"><input type="checkbox" name="include_imdb"><span aria-hidden="true"></span><b class="sr">IMDb trivia</b></label>
+            </div>
+          </article>
+
+          <article class="tile source" data-source="include_goofs">
+            <div class="tile-head">
+              <span class="logo logo-goofs" aria-hidden="true">!</span>
+              <div class="tile-title"><h3>IMDb goofs</h3><p>Continuity slips, visible crew and other mistakes.</p></div>
+              <label class="switch"><input type="checkbox" name="include_goofs"><span aria-hidden="true"></span><b class="sr">IMDb goofs</b></label>
+            </div>
+            <div class="tile-body">
+              <p class="sub">Kinds of goofs</p>
+              <div class="chips" id="goof-chips"></div>
+            </div>
+          </article>
+
+          <article class="tile source" data-source="include_wikipedia">
+            <div class="tile-head">
+              <span class="logo logo-wiki" aria-hidden="true">W</span>
+              <div class="tile-title"><h3>Wikipedia</h3><p>Production, reception and legacy from the article. Plots are always skipped.</p></div>
+              <label class="switch"><input type="checkbox" name="include_wikipedia"><span aria-hidden="true"></span><b class="sr">Wikipedia</b></label>
+            </div>
+            <div class="tile-body">
+              <p class="sub">Sections</p>
+              <div class="chips" id="wiki-chips"></div>
+              <label class="inline">Language <input name="wiki_lang" maxlength="10" placeholder="en" class="short"></label>
+            </div>
+          </article>
+
+          <article class="tile source" data-source="include_omdb">
+            <div class="tile-head">
+              <span class="logo logo-omdb" aria-hidden="true">★</span>
+              <div class="tile-title"><h3>Ratings &amp; awards</h3><p>IMDb, Rotten Tomatoes and Metacritic scores, awards and box office, from OMDb.</p></div>
+              <label class="switch"><input type="checkbox" name="include_omdb"><span aria-hidden="true"></span><b class="sr">Ratings and awards</b></label>
+            </div>
+            <div class="tile-body">
+              <label>OMDb API key <input name="omdb_api_key" type="password" data-secret placeholder="Required for this source"></label>
+              <p class="hint">Free at <a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener">omdbapi.com</a>: 1,000 lookups a day. Activate it from the email they send.</p>
+              <div class="row"><button type="button" class="secondary" data-test="omdb">Test key</button><span class="test-result" id="test-omdb"></span></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="tile tv">
+          <div class="tile-head">
+            <span class="logo logo-tv" aria-hidden="true">📺</span>
+            <div class="tile-title"><h3>For TV shows</h3><p>Show facts about the episode on screen, the series as a whole, or both.</p></div>
+          </div>
+          <div class="toggles">
+            <label class="switch-row"><span>This episode</span><span class="switch"><input type="checkbox" name="tv_episode_facts"><span aria-hidden="true"></span></span></label>
+            <label class="switch-row"><span>The series</span><span class="switch"><input type="checkbox" name="tv_series_facts"><span aria-hidden="true"></span></span></label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Display -->
+      <section id="display" class="group">
+        <header class="group-head">
+          <span class="group-icon" aria-hidden="true">👀</span>
+          <div><h2>Display</h2><p>Whose viewing shows up on the page.</p></div>
+        </header>
+        <div class="tile">
+          <label>Only show what these people are watching <input name="users" placeholder="Everyone (or e.g. alex, kids)"></label>
+          <p class="hint">Comma-separated Plex/Jellyfin usernames. Leave blank to show everyone.</p>
+        </div>
+      </section>
+
+      <!-- Sign-in -->
+      <section id="signin" class="group">
+        <header class="group-head">
+          <span class="group-icon" aria-hidden="true">🔐</span>
+          <div><h2>Sign-in</h2><p>Optional. Off by default, so anyone on your network can view the page.</p></div>
+        </header>
+        <div class="tile">
+          <p id="auth-env-warning" class="warning" hidden>Sign-in is currently switched off by the <code>AUTH_DISABLE</code> setting on the container.</p>
+          <div class="choices">
+            <label class="choice"><input type="radio" name="auth_mode" value="none"><span><b>No sign-in</b><small>Anyone on your network can view the page.</small></span></label>
+            <label class="choice"><input type="radio" name="auth_mode" value="plex"><span><b>Sign in with Plex</b><small>Anyone with access to your Plex server.</small></span></label>
+            <label class="choice"><input type="radio" name="auth_mode" value="oidc"><span><b>Sign in with Pocket ID</b><small>Or another OpenID Connect provider.</small></span></label>
+          </div>
+
+          <div id="auth-plex" class="auth-panel" hidden>
+            <p class="hint">People who can access your Plex server can sign in. The server owner can change settings. Plex sign-in needs a Plex server above, or an allow-list below.</p>
+          </div>
+
+          <div id="auth-oidc" class="auth-panel" hidden>
+            <label>Provider name <input name="oidc_name" placeholder="Pocket ID"></label>
+            <label>Issuer URL <input name="oidc_issuer" type="url" placeholder="https://id.example.com"></label>
+            <label>Client ID <input name="oidc_client_id"></label>
+            <label>Client secret <input name="oidc_client_secret" type="password" data-secret></label>
+            <p class="hint">In Pocket ID: Administration → OIDC Clients → Add. Use this callback URL (tap to copy):</p>
+            <code id="oidc-callback" class="copy"></code>
+          </div>
+
+          <div id="auth-lists" class="auth-panel" hidden>
+            <label>Allowed users <input name="allowed_users" placeholder="Optional"></label>
+            <p class="hint">Comma-separated usernames, emails or (for Pocket ID) groups. With Plex, these are allowed as well as people who share your server. With Pocket ID, leave blank to allow everyone the provider lets in.</p>
+            <label>Admins <input name="admin_users" placeholder="Optional"></label>
+            <p class="hint">Who can open this page. Leave blank for the Plex server owner, or everyone with Pocket ID.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Advanced -->
+      <section id="advanced" class="group">
+        <header class="group-head">
+          <span class="group-icon" aria-hidden="true">⚙️</span>
+          <div><h2>Advanced</h2><p>Only needed for unusual setups.</p></div>
+        </header>
+        <div class="tile">
+          <label class="switch-row"><span>Verify HTTPS certificates<small>Turn off if a server uses a self-signed certificate.</small></span><span class="switch"><input type="checkbox" name="verify_ssl"><span aria-hidden="true"></span></span></label>
           <label>Public URL <input name="public_url" type="url" placeholder="Detected automatically"></label>
-          <p class="hint">Only needed if sign-in redirects go to the wrong address behind a reverse proxy, e.g. <code>https://trivia.example.com</code>.</p>
-        </details>
+          <p class="hint">Only if sign-in redirects go to the wrong address behind a reverse proxy, e.g. <code>https://trivia.example.com</code>.</p>
+        </div>
       </section>
 
       <div class="save-bar">

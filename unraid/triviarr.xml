@@ -19,5 +19,7 @@
   <Config Name="Plex Token" Target="PLEX_TOKEN" Default="" Description="Optional - can also be set in the web UI" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
   <Config Name="Jellyfin URL" Target="JELLYFIN_URL" Default="" Description="Optional - can also be set in the web UI. e.g. http://0.0.0.0:8096" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
   <Config Name="Jellyfin API Key" Target="JELLYFIN_API_KEY" Default="" Description="Optional - can also be set in the web UI" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="PUID" Target="PUID" Default="99" Description="User that owns the config folder (99 = nobody)" Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Description="Group that owns the config folder (100 = users)" Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
   <Config Name="Disable sign-in (recovery)" Target="AUTH_DISABLE" Default="false" Description="Set to true if you lock yourself out; sign-in is skipped until you set it back to false" Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
 </Container>

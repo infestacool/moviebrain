@@ -32,6 +32,12 @@ FIELDS = {
     "include_goofs": ("INCLUDE_GOOFS", True),
     "include_wikipedia": ("INCLUDE_WIKIPEDIA", True),
     "omdb_api_key": ("OMDB_API_KEY", ""),       # optional: adds ratings, awards and box office facts
+    "include_omdb": ("INCLUDE_OMDB", True),
+    "tv_episode_facts": ("TV_EPISODE_FACTS", True),
+    "tv_series_facts": ("TV_SERIES_FACTS", True),
+    # Comma-separated keys from WIKI_SECTIONS / GOOF_KINDS to leave out; blank shows everything.
+    "hidden_wiki_sections": ("HIDDEN_WIKI_SECTIONS", ""),
+    "hidden_goof_kinds": ("HIDDEN_GOOF_KINDS", ""),
     "wiki_lang": ("WIKI_LANG", "en"),
     "verify_ssl": ("VERIFY_SSL", True),
     "auth_mode": ("AUTH_MODE", "none"),         # none | plex | oidc
@@ -43,6 +49,17 @@ FIELDS = {
     "oidc_name": ("OIDC_NAME", "Pocket ID"),
     "public_url": ("PUBLIC_URL", ""),           # only needed if redirects come out wrong behind a proxy
 }
+# Groups the trivia page sorts Wikipedia sections and IMDb goofs into (keys match app.js).
+WIKI_SECTIONS = [
+    ("overview", "Overview"), ("production", "Production"), ("music", "Music"), ("release", "Release"),
+    ("reception", "Reception"), ("awards", "Awards"), ("themes", "Themes & analysis"), ("legacy", "Legacy"),
+    ("other", "Other"),
+]
+GOOF_KINDS = [
+    ("continuity", "Continuity"), ("factual", "Factual errors"), ("revealing", "Revealing mistakes"),
+    ("crew", "Crew or equipment visible"), ("plot", "Plot holes"), ("character", "Character errors"),
+    ("notgoofs", "Not really goofs"), ("other", "Other"),
+]
 SECRET_FIELDS = {"plex_token", "jellyfin_api_key", "oidc_client_secret", "omdb_api_key"}
 AUTH_MODES = ("none", "plex", "oidc")
 CACHE_HOURS = float(os.environ.get("CACHE_HOURS", "24"))
@@ -143,3 +160,17 @@ def jellyfin_configured() -> bool:
 
 
 load()
+
+
+def display_choices() -> dict:
+    """Which sources and sections the trivia page shows, as set in Settings."""
+    hidden_wiki, hidden_goofs = csv(S.hidden_wiki_sections), csv(S.hidden_goof_kinds)
+    return {
+        "sources": {
+            "imdb": S.include_imdb, "goofs": S.include_goofs, "wiki": S.include_wikipedia,
+            "omdb": S.include_omdb and bool(S.omdb_api_key),
+        },
+        "scopes": {"episode": S.tv_episode_facts, "series": S.tv_series_facts},
+        "wiki": {k: k not in hidden_wiki for k, _ in WIKI_SECTIONS},
+        "goofs": {k: k not in hidden_goofs for k, _ in GOOF_KINDS},
+    }

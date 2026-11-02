@@ -1,3 +1,5 @@
+# Works with Docker Compose, QNAP Container Station, Synology Container Manager
+# and Unraid's Compose Manager plugin. Settings are set up in the web UI.
 services:
   triviarr:
     image: ghcr.io/infestacool/triviarr:latest
@@ -6,10 +8,7 @@ services:
     ports:
       - "8085:8080"
     volumes:
-      - /mnt/user/appdata/triviarr:/config
-    # Everything can be set up in the web UI (⚙ Settings). These are optional starting values.
+      - ./config:/config   # e.g. /mnt/user/appdata/triviarr on Unraid, /share/Container/triviarr on QNAP
     environment:
-      - PLEX_URL=
-      - PLEX_TOKEN=
-      - JELLYFIN_URL=
-      - JELLYFIN_API_KEY=
+      - PUID=99            # optional: the user and group that should own /config
+      - PGID=100

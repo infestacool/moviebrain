@@ -36,6 +36,33 @@ jobs:
             type=semver,pattern={{version}}
             type=sha,format=short
 
+      # Build once for this runner and check the container really starts and can save
+      # settings, before anything is published.
+      - name: Build test image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: triviarr:test
+          cache-from: type=gha
+
+      - name: Smoke test
+        run: |
+          set -eux
+          check() {  # check NAME UID GID [extra docker args...]
+            name=$1; uid=$2; gid=$3; shift 3
+            dir=$(mktemp -d)
+            docker run -d --name "$name" -v "$dir:/config" "$@" triviarr:test
+            for i in $(seq 1 30); do docker exec "$name" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')" && break; sleep 1; done
+            docker exec "$name" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"
+            test -f "$dir/settings.json"
+            test "$(stat -c %u:%g "$dir/settings.json")" = "$uid:$gid"
+            test "$(docker exec "$name" awk '/^Uid:/ {print $2}' /proc/1/status)" = "$uid"
+            docker rm -f "$name"
+          }
+          check default 99 100
+          check custom 1000 1000 -e PUID=1000 -e PGID=1000
+
       - uses: docker/build-push-action@v6
         with:
           context: .

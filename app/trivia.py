@@ -482,7 +482,7 @@ async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None
             tasks.append((name, "episode", imdb_items(episode_imdb, imdb_kind)))
         if ids["imdb_id"]:
             tasks.append((name, "series" if is_tv else None, imdb_items(ids["imdb_id"], imdb_kind)))
-    if config.S.omdb_api_key:
+    if config.S.omdb_api_key and config.S.include_omdb:
         if episode_imdb:
             tasks.append(("omdb", "episode", omdb(episode_imdb)))
         if ids["imdb_id"]:
