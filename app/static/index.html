@@ -46,8 +46,8 @@
           <p id="tagline" class="tagline"></p>
           <p id="meta" class="meta"></p>
           <div id="playback" class="playback" hidden>
-            <button id="play-toggle" class="play-toggle" aria-label="Pause movie">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path id="play-icon" d=""/></svg>
+            <button id="play-toggle" class="play-toggle icon-button" aria-label="Pause movie">
+              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path id="play-icon" d=""/></svg>
             </button>
             <div class="playback-track">
               <div id="progress" class="progress"><div id="progress-bar"></div></div>
@@ -74,10 +74,17 @@
           <p id="spot-text" class="spot-text"></p>
         </article>
         <div class="spot-controls">
-          <button id="spot-prev" aria-label="Previous fact">‹</button>
-          <button id="spot-auto" class="auto-toggle" aria-pressed="true" title="Move to the next fact every 20 seconds">Auto-advance: On</button>
-          <button id="spot-next" aria-label="Next fact">›</button>
+          <button id="spot-prev" class="icon-button" aria-label="Previous fact">
+            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg>
+          </button>
+          <button id="spot-auto" class="auto-toggle icon-button" aria-pressed="true" aria-label="Auto-advance" title="Auto-advance: on">
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4V1L8 5l4 4V6c3.3 0 6 2.7 6 6 0 1-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.3 0-6-2.7-6-6 0-1 .25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+          </button>
+          <button id="spot-next" class="icon-button" aria-label="Next fact">
+            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6 8.6 7.4l4.6 4.6-4.6 4.6L10 18l6-6z"/></svg>
+          </button>
         </div>
+        <p id="spot-note" class="spot-note" aria-live="polite"></p>
         <div id="spot-timer" class="spot-timer"><div></div></div>
       </div>
 

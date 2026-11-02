@@ -157,7 +157,8 @@ function updateProgress() {
   const btn = $("play-toggle");
   const playing = s.state === "playing";
   $("play-icon").setAttribute("d", playing ? ICON_PAUSE : ICON_PLAY);
-  btn.disabled = !s.controllable;
+  // aria-disabled instead of disabled, so a tap can still explain why it doesn't work.
+  btn.setAttribute("aria-disabled", String(!s.controllable));
   btn.setAttribute("aria-label", (playing ? "Pause" : "Resume") + " the movie");
   btn.title = s.controllable ? `${playing ? "Pause" : "Resume"} on ${s.device || "the player"}` : "This player can't be controlled remotely";
 
@@ -180,7 +181,8 @@ function showPlaybackError(message) {
 
 async function togglePlayback() {
   const s = currentSession();
-  if (!s || !s.controllable) return;
+  if (!s) return;
+  if (!s.controllable) { showPlaybackError(`${s.device || "This player"} can't be controlled remotely.`); return; }
   const action = s.state === "playing" ? "pause" : "play";
   const btn = $("play-toggle");
   btn.classList.add("busy");
@@ -329,7 +331,7 @@ function renderSpotlight() {
 
 function renderAutoToggle() {
   const btn = $("spot-auto");
-  btn.textContent = "Auto-advance: " + (state.autoplay ? "On" : "Off");
+  btn.title = "Auto-advance: " + (state.autoplay ? "on" : "off");
   btn.setAttribute("aria-pressed", String(state.autoplay));
 }
 
@@ -405,11 +407,17 @@ $("spoilers").onchange = (e) => {
 $("spot-next").onclick = () => stepSpotlight(1);
 $("spot-prev").onclick = () => stepSpotlight(-1);
 $("spot-card").onclick = () => stepSpotlight(1);
+let noteTimer;
 $("spot-auto").onclick = () => {
   state.autoplay = !state.autoplay;
   store("autoplay", state.autoplay ? "1" : "0");
   state.spotStarted = Date.now();
   renderAutoToggle();
+  const note = $("spot-note");
+  note.textContent = state.autoplay ? "Auto-advance on: new fact every 20 seconds" : "Auto-advance off";
+  note.classList.remove("fade");
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(() => note.classList.add("fade"), 2000);
 };
 renderAutoToggle();
 

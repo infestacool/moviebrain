@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
 import re
 import time
@@ -13,6 +14,11 @@ from . import config
 log = logging.getLogger(__name__)
 
 SAFE_ID = re.compile(r"^[A-Za-z0-9_-]+$")
+PLEX_COMPANION_PORT = 32500
+
+# Where each Plex player can be reached for remote control, by machineIdentifier.
+# Kept server-side so player addresses aren't sent to the browser.
+_plex_players: dict[str, list[str]] = {}
 
 
 def _user_allowed(name: str | None) -> bool:
@@ -62,6 +68,8 @@ async def plex_sessions(client: httpx.AsyncClient) -> list[dict]:
                 log.warning("Plex metadata lookup failed: %s", e)
         player = m.get("Player") or {}
         duration = m.get("duration") or 0
+        if player.get("machineIdentifier") and player.get("address"):
+            _remember_player(player["machineIdentifier"], f"http://{player['address']}:{PLEX_COMPANION_PORT}")
         results.append({
             "key": f"plex:{rating_key}:{user or ''}",
             "source": "plex",
@@ -79,7 +87,37 @@ async def plex_sessions(client: httpx.AsyncClient) -> list[dict]:
             "control_id": player.get("machineIdentifier"),
             "controllable": bool(player.get("machineIdentifier")),
         })
+    if results:
+        await _plex_clients(client, headers)
     return results
+
+
+def _remember_player(machine_id: str, url: str, first: bool = False) -> None:
+    # Direct commands carry the Plex token, so only send them to players on the home network.
+    host = url.split("//", 1)[1].rsplit(":", 1)[0]
+    try:
+        if not ipaddress.ip_address(host).is_private:
+            return
+    except ValueError:
+        return
+    urls = _plex_players.setdefault(machine_id, [])
+    if url in urls:
+        urls.remove(url)
+    urls.insert(0, url) if first else urls.append(url)
+
+
+async def _plex_clients(client: httpx.AsyncClient, headers: dict) -> None:
+    """Players announcing themselves on the network, with their remote-control address."""
+    try:
+        r = await client.get(f"{config.S.plex_url}/clients", headers=headers)
+        r.raise_for_status()
+    except httpx.HTTPError as e:
+        log.debug("Plex clients lookup failed: %s", e)
+        return
+    for c in r.json().get("MediaContainer", {}).get("Server", []) or []:
+        host = c.get("address") or c.get("host")
+        if c.get("machineIdentifier") and host:
+            _remember_player(c["machineIdentifier"], f"http://{host}:{c.get('port') or PLEX_COMPANION_PORT}", first=True)
 
 
 async def jellyfin_sessions(client: httpx.AsyncClient) -> list[dict]:
@@ -155,28 +193,57 @@ async def set_playback(key: str, action: str) -> None:
     if not session["controllable"]:
         raise ValueError(f"{session['device'] or 'This player'} can't be controlled remotely")
 
-    async with httpx.AsyncClient(timeout=8, verify=config.S.verify_ssl) as client:
-        if session["source"] == "jellyfin":
-            command = "Pause" if action == "pause" else "Unpause"
+    device = session["device"] or "The player"
+    if session["source"] == "jellyfin":
+        command = "Pause" if action == "pause" else "Unpause"
+        async with httpx.AsyncClient(timeout=8, verify=config.S.verify_ssl) as client:
             r = await client.post(
                 f"{config.S.jellyfin_url}/Sessions/{session['control_id']}/Playing/{command}",
                 headers={"Authorization": f'MediaBrowser Token="{config.S.jellyfin_api_key}"'},
             )
-        else:
-            # Plex relays player commands to the client named in X-Plex-Target-Client-Identifier.
-            r = await client.get(
-                f"{config.S.plex_url}/player/playback/{action}",
-                params={"type": "video", "commandID": int(time.time())},
-                headers={
-                    "X-Plex-Token": config.S.plex_token,
-                    "X-Plex-Target-Client-Identifier": session["control_id"],
-                    "X-Plex-Client-Identifier": config.plex_client_id(),
-                },
-            )
-    if r.status_code >= 400:
-        log.warning("%s %s failed: %s %s", session["source"], action, r.status_code, r.text[:200])
-        raise ValueError(f"{session['device'] or 'The player'} didn't accept the command. "
-                         "Some apps (like Plex Web) don't support remote control.")
+        if r.status_code >= 400:
+            log.warning("Jellyfin %s failed: %s %s", action, r.status_code, r.text[:200])
+            raise ValueError(f"{device} didn't accept the command (Jellyfin said {r.status_code}).")
+        return
+
+    await _plex_command(session["control_id"], action, device)
+
+
+async def _plex_command(machine_id: str, action: str, device: str) -> None:
+    """Send a Plex remote-control command, the way Plex's own remote apps do.
+
+    Players that allow remote control listen on the local network, so try them
+    directly first, then ask the Plex server to relay the command.
+    """
+    headers = {
+        "X-Plex-Token": config.S.plex_token,
+        "X-Plex-Target-Client-Identifier": machine_id,
+        "X-Plex-Client-Identifier": config.plex_client_id(),
+        "X-Plex-Product": "Triviarr",
+        "X-Plex-Device-Name": "Triviarr",
+        "Accept": "application/json",
+    }
+    params = {"type": "video", "commandID": int(time.time() * 1000) % 1_000_000_000}
+    routes = [(url, f"direct ({url.split('//')[1]})") for url in _plex_players.get(machine_id, [])]
+    routes.append((config.S.plex_url, "via Plex server"))
+
+    failures = []
+    async with httpx.AsyncClient(timeout=4, verify=config.S.verify_ssl) as client:
+        for base, label in routes:
+            try:
+                r = await client.get(f"{base}/player/playback/{action}", params=params, headers=headers)
+            except httpx.HTTPError as e:
+                failures.append(f"{label}: {e.__class__.__name__}")
+                continue
+            if r.status_code < 300:
+                log.info("Plex %s sent to %s %s", action, device, label)
+                return
+            failures.append(f"{label}: HTTP {r.status_code}")
+    log.warning("Plex %s for %s failed: %s", action, device, "; ".join(failures))
+    raise ValueError(
+        f"{device} didn't respond to remote control. In the Plex app on {device}, check that remote "
+        f"control is allowed (often called \"Advertise as player\"). Tried {'; '.join(failures)}."
+    )
 
 
 async def fetch_image(source: str, item_id: str, kind: str) -> tuple[bytes, str] | None:

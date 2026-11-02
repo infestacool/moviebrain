@@ -15,6 +15,14 @@
 
 html, body { margin: 0; }
 
+/* iOS Safari gives buttons its own padding, colors and shape; start every button from scratch. */
+button {
+  -webkit-appearance: none; appearance: none; margin: 0; padding: 0; border: 0;
+  font: inherit; color: inherit; background: none; -webkit-tap-highlight-color: transparent;
+}
+.icon-button { display: inline-flex; align-items: center; justify-content: center; line-height: 0; }
+.icon-button svg { display: block; flex: none; fill: currentColor; }
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -74,11 +82,10 @@ h1 { margin: 0 0 4px; font-size: clamp(1.5rem, 4vw, 2.4rem); line-height: 1.15; 
 .playback { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
 .playback-track { flex: 1; min-width: 0; }
 .play-toggle {
-  flex: none; width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer;
-  background: var(--accent); color: var(--accent-text); display: grid; place-items: center;
+  flex: none; width: 44px; height: 44px; min-width: 44px; border-radius: 50%; cursor: pointer;
+  background: var(--accent); color: var(--accent-text);
 }
-.play-toggle svg { width: 20px; height: 20px; fill: currentColor; }
-.play-toggle:disabled { background: var(--surface-2); color: var(--muted); cursor: not-allowed; }
+.play-toggle[aria-disabled="true"] { background: var(--surface-2); color: var(--muted); cursor: not-allowed; }
 .play-toggle.busy { opacity: .6; }
 .playback-error { color: var(--danger); font-size: 13px; margin: 6px 0 0; }
 .progress { height: 5px; background: var(--surface-2); border-radius: 3px; margin: 2px 0 4px; overflow: hidden; }
@@ -104,17 +111,16 @@ h1 { margin: 0 0 4px; font-size: clamp(1.5rem, 4vw, 2.4rem); line-height: 1.15; 
 }
 .spot-source { color: var(--accent); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; }
 .spot-text { margin: 0; font-size: clamp(1.15rem, 2.6vw, 1.5rem); line-height: 1.5; }
-.spot-controls { display: flex; justify-content: center; gap: 16px; margin-top: 16px; }
+.spot-controls { display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 16px; }
 .spot-controls button {
-  width: 52px; height: 52px; border-radius: 50%; border: 0; background: var(--surface);
-  color: var(--text); font-size: 22px; cursor: pointer;
+  width: 52px; height: 52px; border-radius: 50%; background: var(--surface);
+  color: var(--text); cursor: pointer;
 }
 .spot-controls button:hover { background: var(--surface-2); }
-.spot-controls .auto-toggle {
-  width: auto; height: 52px; border-radius: 26px; padding: 0 18px; font: inherit; font-size: 14px; font-weight: 600;
-  color: var(--muted); border: 1px solid var(--surface-2);
-}
+.spot-controls .auto-toggle { width: 44px; height: 44px; color: var(--muted); border: 1.5px solid var(--surface-2); }
 .spot-controls .auto-toggle[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.spot-note { text-align: center; color: var(--muted); font-size: 13px; margin: 8px 0 0; min-height: 1.2em; transition: opacity .4s; }
+.spot-note.fade { opacity: 0; }
 .spot-timer { height: 3px; background: var(--surface); border-radius: 2px; margin-top: 16px; overflow: hidden; }
 .spot-timer div { height: 100%; width: 0; background: var(--muted); }
 
