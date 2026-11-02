@@ -16,6 +16,10 @@
   <header class="topbar">
     <div class="brand">🧠 Moviebrain</div>
     <div class="actions">
+      <div id="tv-view" class="segmented" role="radiogroup" aria-label="Show facts about" hidden>
+        <button role="radio" data-view="episode" aria-checked="true">Episode</button>
+        <button role="radio" data-view="series" aria-checked="false">Series</button>
+      </div>
       <button id="spoilers" class="pill-toggle" aria-pressed="false" title="Spoilers hidden: tap a blurred fact to reveal it">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path id="spoiler-icon" d=""/></svg><span class="label">Spoilers</span>
       </button>
@@ -52,11 +56,6 @@
             <p id="progress-text" class="meta small"></p>
           </div>
         </div>
-      </div>
-
-      <div id="tv-view" class="segmented" role="radiogroup" aria-label="Show facts about" hidden>
-        <button role="radio" data-view="episode" aria-checked="true">This episode</button>
-        <button role="radio" data-view="series" aria-checked="false">Series</button>
       </div>
 
       <div class="tabs" role="tablist">

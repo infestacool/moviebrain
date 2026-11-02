@@ -81,6 +81,7 @@ function render() {
   if (!movie) {
     setBackdrop(null);
     state.movie = null;
+    renderTvView();
     $("empty-detail").textContent = emptyMessage();
     const c = (state.serverInfo && state.serverInfo.configured) || {};
     $("setup-link").hidden = !!(c.plex || c.jellyfin) || !state.isAdmin;
@@ -329,7 +330,7 @@ function subject() {
   return isTv() ? (state.filters.scopes.series ? "show" : "episode") : "movie";
 }
 
-const SERIES_HINT = " Tap Series above for trivia about the whole show.";
+const SERIES_HINT = " Tap Series at the top for trivia about the whole show.";
 
 // Long Wikipedia paragraphs read badly on a card; keep the first few sentences.
 function trimSentences(text, max = 420) {

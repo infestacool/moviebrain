@@ -14,6 +14,8 @@
 }
 
 * { box-sizing: border-box; }
+/* Elements with their own display (flex, grid…) would otherwise ignore the hidden attribute. */
+[hidden] { display: none !important; }
 
 html, body { margin: 0; }
 
@@ -81,7 +83,6 @@ main { max-width: 900px; margin: 0 auto; padding: 0 16px 48px; }
   width: 140px; aspect-ratio: 2 / 3; object-fit: cover; flex: none;
   border-radius: 10px; background: var(--surface-2); box-shadow: 0 10px 30px rgba(0,0,0,.5);
 }
-.poster[hidden] { display: none; }
 .hero-text { min-width: 0; flex: 1; }
 h1 { margin: 0 0 4px; font-size: clamp(1.5rem, 4vw, 2.4rem); line-height: 1.15; }
 .tagline { margin: 0 0 6px; color: var(--muted); font-style: italic; }
@@ -101,9 +102,12 @@ h1 { margin: 0 0 4px; font-size: clamp(1.5rem, 4vw, 2.4rem); line-height: 1.15; 
 
 /* Episode / Series / Both, shown while a TV episode plays */
 .segmented {
-  display: flex; gap: 2px; padding: 3px; margin: 0 0 10px; border-radius: 12px;
+  display: flex; gap: 2px; padding: 3px; border-radius: 12px;
   background: var(--surface); width: fit-content; max-width: 100%;
 }
+/* In the top bar it matches the height of the spoiler button. */
+.topbar .segmented { height: 34px; padding: 2px; border-radius: 17px; border: 1.5px solid var(--surface-2); background: none; }
+.topbar .segmented button { padding: 0 12px; border-radius: 15px; font-size: 13px; }
 .segmented button {
   padding: 7px 16px; border-radius: 9px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer;
   white-space: nowrap;

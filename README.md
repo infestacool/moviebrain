@@ -22,7 +22,7 @@ Trivia for whatever you're watching. Moviebrain checks what's playing on **Plex*
 - **Spotlight**: one fact at a time. Tap the card or use ← → to skip. The circular-arrows button turns auto-advance on (a new fact every 20 seconds) or off.
 - **Trivia** and **Goofs**: the full IMDb lists. Spoilers stay blurred until you tap them, or tap the eye button in the header to show them all.
 - **Wikipedia**: production, release, reception and legacy sections. Plot sections are always skipped.
-- **TV shows**: trivia, goofs and Wikipedia for the episode on screen, or tap **Series** to toggle to facts about the whole show (remembered per device).
+- **TV shows**: trivia, goofs and Wikipedia for the episode on screen, or tap **Series** in the top bar for facts about the whole show (remembered per device).
 - **Ratings & awards** (optional, free OMDb key): IMDb, Rotten Tomatoes and Metacritic scores, awards and box office under the title, plus OMDb facts in Spotlight.
 - **Choose your sources** in Settings: switch each source on or off, pick Wikipedia sections and kinds of goofs, and pick whether TV starts on the episode or the series.
 - **Several things playing?** Buttons at the top switch between them. Nothing playing? Look up any movie by name.
