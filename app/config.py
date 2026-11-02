@@ -29,6 +29,7 @@ FIELDS = {
     "jellyfin_api_key": ("JELLYFIN_API_KEY", ""),
     "users": ("USERS", ""),                     # only show these users' sessions
     "include_imdb": ("INCLUDE_IMDB", True),
+    "include_goofs": ("INCLUDE_GOOFS", True),
     "wiki_lang": ("WIKI_LANG", "en"),
     "verify_ssl": ("VERIFY_SSL", True),
     "auth_mode": ("AUTH_MODE", "none"),         # none | plex | oidc

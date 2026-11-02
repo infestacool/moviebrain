@@ -4,7 +4,8 @@ A small web app for your Unraid server. It shows what movie is playing on **Plex
 
 - **Play/pause** the movie from the button beside the progress bar. This works with most Jellyfin apps and with Plex apps that support remote control (Plex Web doesn't).
 - **Spotlight**: one fact at a time. Tap the card or use ← → to skip, and turn *Auto-advance* on to move to a new fact every 20 seconds.
-- **IMDb**: the full list of IMDb trivia. Spoilers stay blurred until you tap them, unless you turn on the *Spoilers* toggle.
+- **Trivia**: the full list of IMDb trivia. Spoilers stay blurred until you tap them, unless you turn on the *Spoilers* toggle.
+- **Goofs**: IMDb's list of filming mistakes, continuity errors and factual slips, with spoilers blurred the same way. You can turn goofs off in Settings.
 - **Wikipedia**: production, release, reception and legacy sections from the film's article.
 - If several movies are playing, buttons at the top let you switch between them. When nothing is playing, you can look up any movie by name.
 
@@ -54,7 +55,7 @@ If you use a reverse proxy and sign-in redirects to the wrong address, set **Adv
 ## Notes
 
 - Movies are matched to Wikipedia through Wikidata using the IMDb or TMDb ID from your media server, so remakes and films with the same title are matched correctly.
-- IMDb trivia comes from the data feed IMDb's own website uses. IMDb allows only limited personal, non-commercial use of its data, which a home server meets. You can turn IMDb off in Settings.
+- IMDb trivia comes from the data feed IMDb's own website uses. IMDb allows only limited personal, non-commercial use of its data, which a home server meets. You can turn IMDb trivia and goofs off separately in Settings.
 - Trivia is cached in memory for 24 hours (`CACHE_HOURS` to change).
 
 ## Run locally for development

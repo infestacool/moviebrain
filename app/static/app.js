@@ -254,8 +254,9 @@ async function loadTrivia(movie, key) {
   renderTrivia();
 }
 
-function imdbItems() {
-  return (state.trivia && state.trivia.imdb) || [];
+// kind is "imdb" (trivia) or "goofs", matching the API's field names.
+function imdbItems(kind = "imdb") {
+  return (state.trivia && state.trivia[kind]) || [];
 }
 
 function wikiParagraphs() {
@@ -276,17 +277,26 @@ function trimSentences(text, max = 420) {
   return out.trim() || text.slice(0, max) + "…";
 }
 
-function buildDeck() {
-  const imdb = imdbItems()
+function imdbCards(kind, label) {
+  return imdbItems(kind)
     .filter((t) => state.showSpoilers || !t.spoiler)
-    .map((t) => ({ source: "IMDb trivia" + (t.spoiler ? " · spoiler" : ""), text: t.text }));
-  const wiki = wikiParagraphs().map((p) => ({ source: "Wikipedia · " + p.section, text: trimSentences(p.text) }));
-  // Interleave so both sources show up, roughly two IMDb facts per Wikipedia one.
-  const a = shuffle(imdb), b = shuffle(wiki), deck = [];
-  while (a.length || b.length) {
-    if (a.length) deck.push(a.shift());
-    if (a.length) deck.push(a.shift());
-    if (b.length) deck.push(b.shift());
+    .map((t) => {
+      const category = kind === "goofs" && t.category ? " · " + t.category : "";
+      return { source: label + category + (t.spoiler ? " · spoiler" : ""), text: t.text };
+    });
+}
+
+function buildDeck() {
+  // Interleave so every source shows up: two trivia facts, then a goof, then Wikipedia.
+  const trivia = shuffle(imdbCards("imdb", "IMDb trivia"));
+  const goofs = shuffle(imdbCards("goofs", "IMDb goof"));
+  const wiki = shuffle(wikiParagraphs().map((p) => ({ source: "Wikipedia · " + p.section, text: trimSentences(p.text) })));
+  const deck = [];
+  while (trivia.length || goofs.length || wiki.length) {
+    if (trivia.length) deck.push(trivia.shift());
+    if (trivia.length) deck.push(trivia.shift());
+    if (goofs.length) deck.push(goofs.shift());
+    if (wiki.length) deck.push(wiki.shift());
   }
   state.deck = deck;
   state.deckPos = 0;
@@ -295,11 +305,14 @@ function buildDeck() {
 
 function renderTrivia() {
   document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === state.tab));
-  ["spotlight", "imdb", "wiki"].forEach((t) => { $("tab-" + t).hidden = t !== state.tab; });
-  const imdb = imdbItems();
-  $("imdb-count").textContent = imdb.length ? `(${imdb.length})` : "";
+  ["spotlight", "imdb", "goofs", "wiki"].forEach((t) => { $("tab-" + t).hidden = t !== state.tab; });
+  for (const kind of ["imdb", "goofs"]) {
+    const n = imdbItems(kind).length;
+    $(kind + "-count").textContent = n ? `(${n})` : "";
+  }
   renderSpotlight();
-  renderImdb();
+  renderImdbList("imdb", "IMDb trivia");
+  renderImdbList("goofs", "IMDb goofs");
   renderWiki();
 }
 
@@ -327,12 +340,12 @@ function stepSpotlight(delta) {
   renderSpotlight();
 }
 
-function renderImdb() {
-  const list = $("imdb-list");
-  const items = imdbItems();
+function renderImdbList(kind, label) {
+  const list = $(kind + "-list");
+  const items = imdbItems(kind);
   if (!state.trivia) { list.replaceChildren(); return; }
   if (!items.length) {
-    const why = state.trivia.errors.imdb ? "IMDb didn't respond." : "No IMDb trivia for this movie.";
+    const why = state.trivia.errors[kind] ? "IMDb didn't respond." : `No ${label} for this movie.`;
     list.replaceChildren(el("li", {}, why));
     return;
   }

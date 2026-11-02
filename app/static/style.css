@@ -156,6 +156,8 @@ a { color: inherit; }
   .poster { width: 92px; }
   .tagline { display: none; }
   .spot-card { padding: 22px 18px; min-height: 260px; }
+  .tabs button { padding: 10px 2px; font-size: 14px; }
+  .tabs .count { display: block; font-size: 11px; line-height: 1.2; }
 }
 
 /* Header actions */

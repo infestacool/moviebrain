@@ -37,9 +37,24 @@ def _cached(key: str):
     return None
 
 
-def _store(key: str, value):
-    _cache[key] = (time.time() + config.CACHE_HOURS * 3600, value)
+def _store(key: str, value, ttl: float | None = None):
+    _cache[key] = (time.time() + (ttl if ttl is not None else config.CACHE_HOURS * 3600), value)
     return value
+
+
+_inflight: dict[str, asyncio.Future] = {}
+
+
+async def _once(key: str, make):
+    """Run make() once per key at a time; concurrent callers share the result."""
+    if key in _inflight:
+        return await asyncio.shield(_inflight[key])
+    future = asyncio.ensure_future(make())
+    _inflight[key] = future
+    try:
+        return await future
+    finally:
+        _inflight.pop(key, None)
 
 
 def _client() -> httpx.AsyncClient:
@@ -51,12 +66,12 @@ def _client() -> httpx.AsyncClient:
 
 
 async def _get(client: httpx.AsyncClient, url: str, **kwargs) -> httpx.Response:
-    """GET that waits out Wikimedia's short rate limits instead of failing."""
-    for attempt in range(3):
+    """GET that rides out one short Wikimedia rate limit instead of failing."""
+    for attempt in range(2):
         r = await client.get(url, **kwargs)
-        if r.status_code != 429 or attempt == 2:
+        if r.status_code != 429 or attempt == 1:
             break
-        await asyncio.sleep(min(float(r.headers.get("retry-after") or 5), 15))
+        await asyncio.sleep(min(float(r.headers.get("retry-after") or 3), 5))
     r.raise_for_status()
     return r
 
@@ -72,24 +87,31 @@ async def _wikidata_search(client: httpx.AsyncClient, prop: str, value: str) -> 
     return hits[0]["title"] if hits else None
 
 
-async def _wikipedia_search(client: httpx.AsyncClient, title: str, year: int | None) -> str | None:
-    """Fallback when the server has no IDs: search Wikipedia for the film's article."""
+async def _wikipedia_search(client: httpx.AsyncClient, title: str, year: int | None) -> tuple[str | None, str | None]:
+    """Search Wikipedia for the film's article; returns (Wikidata ID, article title)."""
     query = f"{title} {year or ''} film".strip()
     r = await _get(client, f"https://{config.S.wiki_lang}.wikipedia.org/w/api.php", params={
         "action": "query", "format": "json", "formatversion": 2,
         "generator": "search", "gsrsearch": query, "gsrlimit": 1, "prop": "pageprops",
     })
     pages = r.json().get("query", {}).get("pages", [])
-    return pages[0].get("pageprops", {}).get("wikibase_item") if pages else None
+    if not pages:
+        return None, None
+    return pages[0].get("pageprops", {}).get("wikibase_item"), pages[0].get("title")
 
 
 async def resolve(imdb_id: str | None, tmdb_id: str | None, title: str | None, year: int | None) -> dict:
     """Return {'imdb_id', 'wiki_title'} using whatever identifiers we have."""
-    key = f"resolve:{imdb_id}:{tmdb_id}:{title}:{year}"
+    # Key on the most precise ID, so the same film looked up different ways shares a cache entry.
+    key = "resolve:" + (imdb_id or (tmdb_id and f"tmdb{tmdb_id}") or f"{title}|{year}")
     if (hit := _cached(key)) is not None:
         return hit
+    return await _once(key, lambda: _resolve(key, imdb_id, tmdb_id, title, year))
 
+
+async def _resolve(key: str, imdb_id, tmdb_id, title, year) -> dict:
     result = {"imdb_id": imdb_id, "wiki_title": None}
+    complete = True
     async with _client() as client:
         try:
             qid = None
@@ -98,7 +120,7 @@ async def resolve(imdb_id: str | None, tmdb_id: str | None, title: str | None, y
             if not qid and tmdb_id:
                 qid = await _wikidata_search(client, "P4947", tmdb_id)
             if not qid and title:
-                qid = await _wikipedia_search(client, title, year)
+                qid, result["wiki_title"] = await _wikipedia_search(client, title, year)
             if qid:
                 r = await _get(client, WIKIDATA_API, params={
                     "action": "wbgetentities", "ids": qid, "format": "json",
@@ -114,11 +136,18 @@ async def resolve(imdb_id: str | None, tmdb_id: str | None, title: str | None, y
                             result["imdb_id"] = value
                             break
         except httpx.HTTPError as e:
-            # Wikidata is a nicety; IMDb trivia can still be found by title.
+            # Wikidata is a nicety: fall back to searching Wikipedia and IMDb by title.
             log.warning("Wikidata lookup failed: %s", e)
+            complete = False
+            if title and not result["wiki_title"]:
+                try:
+                    _, result["wiki_title"] = await _wikipedia_search(client, title, year)
+                except httpx.HTTPError as e2:
+                    log.warning("Wikipedia search failed: %s", e2)
         if not result["imdb_id"] and title:
             result["imdb_id"] = await _imdb_suggest(client, title, year)
-    return _store(key, result)
+    # A partial answer is retried after 10 minutes instead of being kept for a day.
+    return _store(key, result, ttl=None if complete else 600)
 
 
 async def _imdb_suggest(client: httpx.AsyncClient, title: str, year: int | None) -> str | None:
@@ -139,10 +168,12 @@ async def _imdb_suggest(client: httpx.AsyncClient, title: str, year: int | None)
 
 # --- IMDb -------------------------------------------------------------------
 
+# Trivia and goofs share the same shape in IMDb's API.
+IMDB_LISTS = ("trivia", "goofs")
 IMDB_QUERY = """
-query Trivia($id: ID!, $after: ID) {
+query Items($id: ID!, $after: ID) {
   title(id: $id) {
-    trivia(first: 250, after: $after) {
+    %s(first: 250, after: $after) {
       total
       pageInfo { hasNextPage endCursor }
       edges { node {
@@ -158,28 +189,31 @@ query Trivia($id: ID!, $after: ID) {
 """
 
 
-async def imdb_trivia(imdb_id: str) -> list[dict]:
-    """IMDb trivia via the GraphQL endpoint IMDb's own website uses.
+async def imdb_items(imdb_id: str, kind: str = "trivia") -> list[dict]:
+    """IMDb trivia or goofs via the GraphQL endpoint IMDb's own website uses.
 
     IMDb only permits limited, personal, non-commercial use of this data.
     """
-    if not IMDB_ID.match(imdb_id):
+    if not IMDB_ID.match(imdb_id) or kind not in IMDB_LISTS:
         return []
-    key = f"imdb:{imdb_id}"
+    key = f"imdb:{kind}:{imdb_id}"
     if (hit := _cached(key)) is not None:
         return hit
+    return await _once(key, lambda: _imdb_items(key, imdb_id, kind))
 
+
+async def _imdb_items(key: str, imdb_id: str, kind: str) -> list[dict]:
     items, after = [], None
     async with _client() as client:
         for _ in range(4):  # 1000 items is more than any film has
             r = await client.post(
                 IMDB_GRAPHQL,
-                json={"query": IMDB_QUERY, "variables": {"id": imdb_id, "after": after}},
+                json={"query": IMDB_QUERY % kind, "variables": {"id": imdb_id, "after": after}},
                 headers={"x-imdb-client-name": "imdb-web-next", "content-type": "application/json"},
             )
             r.raise_for_status()
-            trivia = ((r.json().get("data") or {}).get("title") or {}).get("trivia") or {}
-            for edge in trivia.get("edges", []):
+            listing = ((r.json().get("data") or {}).get("title") or {}).get(kind) or {}
+            for edge in listing.get("edges", []):
                 node = edge["node"]
                 text = (node.get("text") or {}).get("plainText", "").strip()
                 if not text:
@@ -193,7 +227,7 @@ async def imdb_trivia(imdb_id: str) -> list[dict]:
                     "interested": score.get("usersInterested", 0),
                     "voted": score.get("usersVoted", 0),
                 })
-            page = trivia.get("pageInfo") or {}
+            page = listing.get("pageInfo") or {}
             if not page.get("hasNextPage"):
                 break
             after = page.get("endCursor")
@@ -209,7 +243,10 @@ async def wikipedia(wiki_title: str) -> dict:
     key = f"wiki:{config.S.wiki_lang}:{wiki_title}"
     if (hit := _cached(key)) is not None:
         return hit
+    return await _once(key, lambda: _wikipedia(key, wiki_title))
 
+
+async def _wikipedia(key: str, wiki_title: str) -> dict:
     base = f"https://{config.S.wiki_lang}.wikipedia.org"
     async with _client() as client:
         r = await _get(client, f"{base}/w/api.php", params={
@@ -253,11 +290,13 @@ async def wikipedia(wiki_title: str) -> dict:
 
 async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None, year: int | None) -> dict:
     ids = await resolve(imdb_id, tmdb_id, title, year)
-    out: dict = {"imdb_id": ids["imdb_id"], "imdb": None, "wikipedia": None, "errors": {}}
+    out: dict = {"imdb_id": ids["imdb_id"], "imdb": None, "goofs": None, "wikipedia": None, "errors": {}}
 
     tasks = {}
     if ids["imdb_id"] and config.S.include_imdb:
-        tasks["imdb"] = imdb_trivia(ids["imdb_id"])
+        tasks["imdb"] = imdb_items(ids["imdb_id"], "trivia")
+    if ids["imdb_id"] and config.S.include_goofs:
+        tasks["goofs"] = imdb_items(ids["imdb_id"], "goofs")
     if ids["wiki_title"]:
         tasks["wikipedia"] = wikipedia(ids["wiki_title"])
     results = await asyncio.gather(*tasks.values(), return_exceptions=True)
