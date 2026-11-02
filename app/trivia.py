@@ -87,9 +87,18 @@ async def _wikidata_search(client: httpx.AsyncClient, prop: str, value: str) -> 
     return hits[0]["title"] if hits else None
 
 
-async def _wikipedia_search(client: httpx.AsyncClient, title: str, year: int | None) -> tuple[str | None, str | None]:
-    """Search Wikipedia for the film's article; returns (Wikidata ID, article title)."""
-    query = f"{title} {year or ''} film".strip()
+# What differs between looking up a film and a TV show.
+KINDS = {
+    # kind: (Wikidata TMDb property, Wikipedia search hint, IMDb title types)
+    "movie": ("P4947", "film", ("movie", "tvMovie")),
+    "tv": ("P4983", "TV series", ("tvSeries", "tvMiniSeries")),
+}
+
+
+async def _wikipedia_search(client: httpx.AsyncClient, title: str, year: int | None, kind: str = "movie") -> tuple[str | None, str | None]:
+    """Search Wikipedia for the title's article; returns (Wikidata ID, article title)."""
+    # Shows span many years and Plex reports the episode's, so only films search by year.
+    query = " ".join(str(p) for p in (title, year if kind == "movie" else None, KINDS[kind][1]) if p)
     r = await _get(client, f"https://{config.S.wiki_lang}.wikipedia.org/w/api.php", params={
         "action": "query", "format": "json", "formatversion": 2,
         "generator": "search", "gsrsearch": query, "gsrlimit": 1, "prop": "pageprops",
@@ -100,16 +109,27 @@ async def _wikipedia_search(client: httpx.AsyncClient, title: str, year: int | N
     return pages[0].get("pageprops", {}).get("wikibase_item"), pages[0].get("title")
 
 
-async def resolve(imdb_id: str | None, tmdb_id: str | None, title: str | None, year: int | None) -> dict:
-    """Return {'imdb_id', 'wiki_title'} using whatever identifiers we have."""
-    # Key on the most precise ID, so the same film looked up different ways shares a cache entry.
-    key = "resolve:" + (imdb_id or (tmdb_id and f"tmdb{tmdb_id}") or f"{title}|{year}")
+async def resolve(imdb_id: str | None, tmdb_id: str | None, title: str | None, year: int | None,
+                  kind: str = "movie") -> dict:
+    """Return {'imdb_id', 'wiki_title'} using whatever identifiers we have.
+
+    kind is "movie" or "tv" (a show), or "episode", which only uses the IMDb ID
+    because few episodes have their own Wikipedia article.
+    """
+    if kind not in KINDS and kind != "episode":
+        kind = "movie"
+    # Key on the most precise ID, so the same title looked up different ways shares a cache entry.
+    key = f"resolve:{kind}:" + (imdb_id or (tmdb_id and f"tmdb{tmdb_id}") or f"{title}|{year}")
     if (hit := _cached(key)) is not None:
         return hit
-    return await _once(key, lambda: _resolve(key, imdb_id, tmdb_id, title, year))
+    if kind == "episode":
+        title = tmdb_id = None
+    return await _once(key, lambda: _resolve(key, imdb_id, tmdb_id, title, year, kind))
 
 
-async def _resolve(key: str, imdb_id, tmdb_id, title, year) -> dict:
+async def _resolve(key: str, imdb_id, tmdb_id, title, year, kind) -> dict:
+    tmdb_prop = KINDS.get(kind, KINDS["movie"])[0]
+    search_kind = kind if kind in KINDS else "movie"
     result = {"imdb_id": imdb_id, "wiki_title": None}
     complete = True
     async with _client() as client:
@@ -118,9 +138,9 @@ async def _resolve(key: str, imdb_id, tmdb_id, title, year) -> dict:
             if imdb_id:
                 qid = await _wikidata_search(client, "P345", imdb_id)
             if not qid and tmdb_id:
-                qid = await _wikidata_search(client, "P4947", tmdb_id)
+                qid = await _wikidata_search(client, tmdb_prop, tmdb_id)
             if not qid and title:
-                qid, result["wiki_title"] = await _wikipedia_search(client, title, year)
+                qid, result["wiki_title"] = await _wikipedia_search(client, title, year, search_kind)
             if qid:
                 r = await _get(client, WIKIDATA_API, params={
                     "action": "wbgetentities", "ids": qid, "format": "json",
@@ -141,16 +161,16 @@ async def _resolve(key: str, imdb_id, tmdb_id, title, year) -> dict:
             complete = False
             if title and not result["wiki_title"]:
                 try:
-                    _, result["wiki_title"] = await _wikipedia_search(client, title, year)
+                    _, result["wiki_title"] = await _wikipedia_search(client, title, year, search_kind)
                 except httpx.HTTPError as e2:
                     log.warning("Wikipedia search failed: %s", e2)
         if not result["imdb_id"] and title:
-            result["imdb_id"] = await _imdb_suggest(client, title, year)
+            result["imdb_id"] = await _imdb_suggest(client, title, year, search_kind)
     # A partial answer is retried after 10 minutes instead of being kept for a day.
     return _store(key, result, ttl=None if complete else 600)
 
 
-async def _imdb_suggest(client: httpx.AsyncClient, title: str, year: int | None) -> str | None:
+async def _imdb_suggest(client: httpx.AsyncClient, title: str, year: int | None, kind: str = "movie") -> str | None:
     """Find an IMDb ID by title using IMDb's search-box suggestion feed."""
     slug = re.sub(r"[^a-z0-9 ]", "", title.lower()).strip() or "x"
     try:
@@ -159,11 +179,47 @@ async def _imdb_suggest(client: httpx.AsyncClient, title: str, year: int | None)
     except httpx.HTTPError as e:
         log.warning("IMDb suggestion lookup failed: %s", e)
         return None
-    movies = [d for d in r.json().get("d", []) if d.get("qid") in ("movie", "tvMovie")]
-    for d in movies:
-        if not year or abs((d.get("y") or 0) - year) <= 1:
+    matches = [d for d in r.json().get("d", []) if d.get("qid") in KINDS[kind][2]]
+    for d in matches:
+        # A show's year is when it started, which an episode's year won't match.
+        if kind == "tv" or not year or abs((d.get("y") or 0) - year) <= 1:
             return d["id"]
     return None
+
+
+EPISODES_QUERY = """
+query Episodes($id: ID!, $season: String!) {
+  title(id: $id) {
+    episodes { episodes(first: 250, filter: {includeSeasons: [$season]}) {
+      edges { node { id series { episodeNumber { seasonNumber episodeNumber } } } }
+    } }
+  }
+}
+"""
+
+
+async def imdb_episode_id(series_id: str, season, number) -> str | None:
+    """Find an episode's IMDb ID from its show's ID and season/episode number."""
+    if not (IMDB_ID.match(series_id or "") and season is not None and number is not None):
+        return None
+    key = f"imdb:episodes:{series_id}:{season}"
+    episodes = _cached(key)
+    if episodes is None:
+        async with _client() as client:
+            r = await client.post(
+                IMDB_GRAPHQL,
+                json={"query": EPISODES_QUERY, "variables": {"id": series_id, "season": str(season)}},
+                headers={"x-imdb-client-name": "imdb-web-next", "content-type": "application/json"},
+            )
+            r.raise_for_status()
+        edges = (((((r.json().get("data") or {}).get("title") or {}).get("episodes") or {})
+                  .get("episodes") or {}).get("edges") or [])
+        episodes = {
+            str(e["node"]["series"]["episodeNumber"]["episodeNumber"]): e["node"]["id"]
+            for e in edges if ((e["node"].get("series") or {}).get("episodeNumber") or {}).get("episodeNumber") is not None
+        }
+        _store(key, episodes)
+    return episodes.get(str(number))
 
 
 # --- IMDb -------------------------------------------------------------------
@@ -288,22 +344,57 @@ async def _wikipedia(key: str, wiki_title: str) -> dict:
 
 # --- Combined ---------------------------------------------------------------
 
-async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None, year: int | None) -> dict:
-    ids = await resolve(imdb_id, tmdb_id, title, year)
-    out: dict = {"imdb_id": ids["imdb_id"], "imdb": None, "goofs": None, "wikipedia": None, "errors": {}}
+async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None, year: int | None,
+                     kind: str = "movie", episode: dict | None = None) -> dict:
+    """Trivia, goofs and Wikipedia for a movie, or for a TV show plus the episode playing.
 
-    tasks = {}
-    if ids["imdb_id"] and config.S.include_imdb:
-        tasks["imdb"] = imdb_items(ids["imdb_id"], "trivia")
-    if ids["imdb_id"] and config.S.include_goofs:
-        tasks["goofs"] = imdb_items(ids["imdb_id"], "goofs")
+    For episodes, each IMDb item gets scope "episode" or "series", episode items first.
+    """
+    is_tv = kind == "tv"
+    ids = await resolve(imdb_id, tmdb_id, title, year, "tv" if is_tv else "movie")
+    out: dict = {
+        "imdb_id": ids["imdb_id"], "imdb": None, "goofs": None, "wikipedia": None,
+        "episode_wikipedia": None, "errors": {},
+    }
+
+    episode_imdb = None
+    if is_tv and episode:
+        episode_imdb = episode.get("imdb_id")
+        if not (episode_imdb and IMDB_ID.match(episode_imdb)) and ids["imdb_id"]:
+            try:
+                episode_imdb = await imdb_episode_id(ids["imdb_id"], episode.get("season"), episode.get("number"))
+            except httpx.HTTPError as e:
+                log.warning("IMDb episode lookup failed: %s", e)
+    out["episode_imdb_id"] = episode_imdb
+
+    # (name, scope, coroutine); results with the same name are merged, episode first.
+    tasks: list[tuple[str, str | None, object]] = []
+    for name, imdb_kind, enabled in (("imdb", "trivia", config.S.include_imdb), ("goofs", "goofs", config.S.include_goofs)):
+        if not enabled:
+            continue
+        if episode_imdb:
+            tasks.append((name, "episode", imdb_items(episode_imdb, imdb_kind)))
+        if ids["imdb_id"]:
+            tasks.append((name, "series" if is_tv else None, imdb_items(ids["imdb_id"], imdb_kind)))
     if ids["wiki_title"]:
-        tasks["wikipedia"] = wikipedia(ids["wiki_title"])
-    results = await asyncio.gather(*tasks.values(), return_exceptions=True)
-    for name, res in zip(tasks, results):
+        tasks.append(("wikipedia", None, wikipedia(ids["wiki_title"])))
+    if episode_imdb:
+        tasks.append(("episode_wikipedia", None, _episode_wikipedia(episode_imdb)))
+
+    results = await asyncio.gather(*(t[2] for t in tasks), return_exceptions=True)
+    for (name, scope, _), res in zip(tasks, results):
         if isinstance(res, Exception):
             log.warning("%s trivia failed: %s", name, res)
             out["errors"][name] = str(res) or res.__class__.__name__
+        elif name in ("imdb", "goofs"):
+            items = [{**item, "scope": scope} for item in res] if scope else res
+            out[name] = (out[name] or []) + items
         else:
             out[name] = res
     return out
+
+
+async def _episode_wikipedia(episode_imdb: str) -> dict | None:
+    """The episode's own Wikipedia article, if it has one."""
+    ids = await resolve(episode_imdb, None, None, None, "episode")
+    return await wikipedia(ids["wiki_title"]) if ids["wiki_title"] else None

@@ -60,11 +60,16 @@ async def get_trivia(
     tmdb: Optional[str] = None,
     title: Optional[str] = None,
     year: Optional[int] = None,
+    kind: str = "movie",
+    ep_imdb: Optional[str] = None,
+    season: Optional[int] = None,
+    episode: Optional[int] = None,
 ):
     if not (imdb or tmdb or title):
         raise HTTPException(400, "Provide imdb, tmdb or title")
+    ep = {"imdb_id": ep_imdb, "season": season, "number": episode} if kind == "tv" else None
     try:
-        return await trivia.get_trivia(imdb, tmdb, title, year)
+        return await trivia.get_trivia(imdb, tmdb, title, year, "tv" if kind == "tv" else "movie", ep)
     except Exception as e:  # network trouble resolving the film
         log.exception("Trivia lookup failed")
         raise HTTPException(502, f"Trivia lookup failed: {e}")

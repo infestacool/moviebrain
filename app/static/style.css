@@ -76,6 +76,7 @@ main { max-width: 900px; margin: 0 auto; padding: 0 16px 48px; }
 .hero-text { min-width: 0; flex: 1; }
 h1 { margin: 0 0 4px; font-size: clamp(1.5rem, 4vw, 2.4rem); line-height: 1.15; }
 .tagline { margin: 0 0 6px; color: var(--muted); font-style: italic; }
+.episode-line { margin: 0 0 6px; font-size: 1.05rem; font-weight: 600; }
 .meta { margin: 0; color: var(--muted); font-size: 14px; }
 .small { font-size: 13px; }
 
@@ -137,7 +138,9 @@ h1 { margin: 0 0 4px; font-size: clamp(1.5rem, 4vw, 2.4rem); line-height: 1.15; 
 .spoiler-hidden::selection { background: transparent; }
 
 .wiki-section { margin-bottom: 22px; }
-.wiki-section h2 { font-size: 1.05rem; margin: 0 0 8px; color: var(--accent); }
+.wiki-article { font-size: 1.25rem; margin: 6px 0 14px; }
+.wiki-article ~ .wiki-article { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--surface-2); }
+.wiki-section h3 { font-size: 1.05rem; margin: 0 0 8px; color: var(--accent); }
 .wiki-section p { background: var(--surface); border-radius: var(--radius); padding: 14px 16px; margin: 0 0 10px; }
 .wiki-link { display: inline-block; margin-top: 8px; color: var(--muted); }
 

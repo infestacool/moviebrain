@@ -9,7 +9,7 @@
   <Network>bridge</Network>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
-  <Overview>Shows trivia from IMDb and Wikipedia for the movie currently playing on Plex or Jellyfin. Set up your servers and optional sign-in (Plex or Pocket ID) from the Settings page in the web UI.</Overview>
+  <Overview>Shows trivia from IMDb and Wikipedia for the movie or TV episode currently playing on Plex or Jellyfin. Set up your servers and optional sign-in (Plex or Pocket ID) from the Settings page in the web UI.</Overview>
   <Category>MediaServer:Other</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
   <Icon>https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f3ac.png</Icon>

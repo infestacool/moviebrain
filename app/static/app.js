@@ -89,7 +89,9 @@ function render() {
 
   state.movie = movie;
   renderHero(movie, session);
-  const key = movie.imdb_id || movie.tmdb_id || `${movie.title}|${movie.year || ""}`;
+  const ep = movie.episode;
+  const key = (movie.imdb_id || movie.tmdb_id || `${movie.title}|${movie.year || ""}`) +
+    (ep ? `|${ep.imdb_id || `s${ep.season}e${ep.number}`}` : "");
   if (key !== state.triviaFor) loadTrivia(movie, key);
 }
 
@@ -100,7 +102,7 @@ function emptyMessage() {
   const c = info.configured || {};
   if (!c.plex && !c.jellyfin) return "No media server set up yet. Add your Plex or Jellyfin server in Settings.";
   const names = [c.plex && "Plex", c.jellyfin && "Jellyfin"].filter(Boolean).join(" or ");
-  return `Start a movie on ${names} and its trivia will appear here.`;
+  return `Start a movie or TV show on ${names} and its trivia will appear here.`;
 }
 
 function renderSessionChips() {
@@ -111,15 +113,29 @@ function renderSessionChips() {
   const active = currentSession();
   nav.replaceChildren(...state.sessions.map((s) => {
     const b = el("button", { className: s.key === active.key ? "active" : "" },
-      `${s.state === "paused" ? "⏸" : "▶"} ${s.title}${s.user ? " · " + s.user : ""}`);
+      `${s.state === "paused" ? "⏸" : "▶"} ${s.title}${s.episode ? " " + episodeCode(s.episode) : ""}${s.user ? " · " + s.user : ""}`);
     b.onclick = () => { state.selectedKey = s.key; store("selectedKey", s.key); render(); };
     return b;
   }));
+  if (nav.dataset.shown !== active.key) {
+    nav.dataset.shown = active.key;
+    const chip = nav.querySelector(".active");
+    if (chip) nav.scrollLeft = chip.offsetLeft - (nav.clientWidth - chip.offsetWidth) / 2;
+  }
+}
+
+function episodeCode(ep) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return ep.season != null && ep.number != null ? `S${pad(ep.season)}E${pad(ep.number)}` : "";
 }
 
 function renderHero(movie, session) {
-  $("title").textContent = movie.title + (movie.year ? ` (${movie.year})` : "");
-  $("tagline").textContent = movie.tagline || "";
+  const ep = movie.episode;
+  // Episode years are when that episode aired, so only movies show a year.
+  $("title").textContent = movie.title + (movie.year && !ep ? ` (${movie.year})` : "");
+  $("episode-line").hidden = !ep;
+  if (ep) $("episode-line").textContent = [episodeCode(ep), ep.title].filter(Boolean).join(" · ");
+  $("tagline").textContent = ep ? "" : movie.tagline || "";
 
   const poster = $("poster");
   if (session) {
@@ -235,6 +251,12 @@ async function loadTrivia(movie, key) {
   if (movie.tmdb_id) params.set("tmdb", movie.tmdb_id);
   if (movie.title) params.set("title", movie.title);
   if (movie.year) params.set("year", movie.year);
+  if (movie.episode) {
+    params.set("kind", "tv");
+    if (movie.episode.imdb_id) params.set("ep_imdb", movie.episode.imdb_id);
+    if (movie.episode.season != null) params.set("season", movie.episode.season);
+    if (movie.episode.number != null) params.set("episode", movie.episode.number);
+  }
 
   try {
     const res = await fetch("/api/trivia?" + params);
@@ -261,10 +283,15 @@ function imdbItems(kind = "imdb") {
   return (state.trivia && state.trivia[kind]) || [];
 }
 
-function wikiParagraphs() {
-  const w = state.trivia && state.trivia.wikipedia;
+// which is "wikipedia" (the movie or show) or "episode_wikipedia".
+function wikiParagraphs(which = "wikipedia") {
+  const w = state.trivia && state.trivia[which];
   if (!w) return [];
   return w.sections.flatMap((s) => s.paragraphs.map((p) => ({ section: s.title, text: p })));
+}
+
+function isTv() {
+  return !!(state.movie && state.movie.episode);
 }
 
 // Long Wikipedia paragraphs read badly on a card; keep the first few sentences.
@@ -279,26 +306,46 @@ function trimSentences(text, max = 420) {
   return out.trim() || text.slice(0, max) + "…";
 }
 
-function imdbCards(kind, label) {
+const SCOPE_LABELS = { episode: "This episode", series: "Series" };
+
+// scope is "episode", "series", or undefined for movies.
+function imdbCards(kind, label, scope) {
   return imdbItems(kind)
-    .filter((t) => state.showSpoilers || !t.spoiler)
+    .filter((t) => t.scope === scope && (state.showSpoilers || !t.spoiler))
     .map((t) => {
+      const where = scope ? SCOPE_LABELS[scope] + " · " : "";
       const category = kind === "goofs" && t.category ? " · " + t.category : "";
-      return { source: label + category + (t.spoiler ? " · spoiler" : ""), text: t.text };
+      return { source: where + label + category + (t.spoiler ? " · spoiler" : ""), text: t.text };
     });
 }
 
-function buildDeck() {
-  // Interleave so every source shows up: two trivia facts, then a goof, then Wikipedia.
-  const trivia = shuffle(imdbCards("imdb", "IMDb trivia"));
-  const goofs = shuffle(imdbCards("goofs", "IMDb goof"));
-  const wiki = shuffle(wikiParagraphs().map((p) => ({ source: "Wikipedia · " + p.section, text: trimSentences(p.text) })));
-  const deck = [];
+function wikiCards(which, prefix) {
+  return wikiParagraphs(which).map((p) => ({ source: `${prefix}Wikipedia · ${p.section}`, text: trimSentences(p.text) }));
+}
+
+// Two trivia facts, then a goof, then Wikipedia, so every source shows up.
+function interleave(trivia, goofs, wiki) {
+  [trivia, goofs, wiki].forEach(shuffle);
+  const out = [];
   while (trivia.length || goofs.length || wiki.length) {
-    if (trivia.length) deck.push(trivia.shift());
-    if (trivia.length) deck.push(trivia.shift());
-    if (goofs.length) deck.push(goofs.shift());
-    if (wiki.length) deck.push(wiki.shift());
+    if (trivia.length) out.push(trivia.shift());
+    if (trivia.length) out.push(trivia.shift());
+    if (goofs.length) out.push(goofs.shift());
+    if (wiki.length) out.push(wiki.shift());
+  }
+  return out;
+}
+
+function buildDeck() {
+  let deck;
+  if (isTv()) {
+    // Facts about the episode on screen come first, then the show in general.
+    deck = interleave(imdbCards("imdb", "IMDb trivia", "episode"), imdbCards("goofs", "IMDb goof", "episode"),
+      wikiCards("episode_wikipedia", "This episode · "))
+      .concat(interleave(imdbCards("imdb", "IMDb trivia", "series"), imdbCards("goofs", "IMDb goof", "series"),
+        wikiCards("wikipedia", "Series · ")));
+  } else {
+    deck = interleave(imdbCards("imdb", "IMDb trivia"), imdbCards("goofs", "IMDb goof"), wikiCards("wikipedia", ""));
   }
   state.deck = deck;
   state.deckPos = 0;
@@ -322,7 +369,7 @@ function renderSpotlight() {
   const item = state.deck[state.deckPos];
   if (!item) {
     $("spot-source").textContent = "";
-    $("spot-text").textContent = state.trivia ? "No trivia found for this movie." : "";
+    $("spot-text").textContent = state.trivia ? `No trivia found for this ${isTv() ? "show" : "movie"}.` : "";
     return;
   }
   $("spot-source").textContent = `${item.source} · ${state.deckPos + 1}/${state.deck.length}`;
@@ -347,13 +394,14 @@ function renderImdbList(kind, label) {
   const items = imdbItems(kind);
   if (!state.trivia) { list.replaceChildren(); return; }
   if (!items.length) {
-    const why = state.trivia.errors[kind] ? "IMDb didn't respond." : `No ${label} for this movie.`;
+    const why = state.trivia.errors[kind] ? "IMDb didn't respond." : `No ${label} for this ${isTv() ? "show" : "movie"}.`;
     list.replaceChildren(el("li", {}, why));
     return;
   }
   list.replaceChildren(...items.map((t) => {
     const li = el("li");
-    const label = [t.spoiler && "Spoiler", t.category && t.category !== "Uncategorized" && t.category].filter(Boolean).join(" · ");
+    const label = [SCOPE_LABELS[t.scope], t.spoiler && "Spoiler", t.category && t.category !== "Uncategorized" && t.category]
+      .filter(Boolean).join(" · ");
     if (label) li.append(el("div", { className: "badge" + (t.spoiler ? " spoiler" : "") }, label));
     const p = el("div", {}, t.text);
     if (t.spoiler && !state.showSpoilers) {
@@ -366,28 +414,37 @@ function renderImdbList(kind, label) {
   }));
 }
 
-function renderWiki() {
-  const box = $("wiki-content");
-  if (!state.trivia) { box.replaceChildren(); return; }
-  const w = state.trivia.wikipedia;
-  if (!w) {
-    const why = state.trivia.errors.wikipedia ? "Wikipedia didn't respond." : "No Wikipedia article found.";
-    box.replaceChildren(el("p", { className: "loading" }, why));
-    return;
-  }
+function wikiArticle(w, heading) {
   const parts = [];
+  if (heading) parts.push(el("h2", { className: "wiki-article" }, heading));
   if (w.intro.length) {
     const sec = el("div", { className: "wiki-section" });
-    sec.append(el("h2", {}, "Overview"), ...w.intro.map((p) => el("p", {}, p)));
+    sec.append(el("h3", {}, "Overview"), ...w.intro.map((p) => el("p", {}, p)));
     parts.push(sec);
   }
   for (const s of w.sections) {
     const sec = el("div", { className: "wiki-section" });
-    sec.append(el("h2", {}, s.title), ...s.paragraphs.map((p) => el("p", {}, p)));
+    sec.append(el("h3", {}, s.title), ...s.paragraphs.map((p) => el("p", {}, p)));
     parts.push(sec);
   }
-  parts.push(el("a", { className: "wiki-link", href: w.url, target: "_blank", rel: "noopener" }, "Read the full article on Wikipedia →"));
-  box.replaceChildren(...parts);
+  parts.push(el("a", { className: "wiki-link", href: w.url, target: "_blank", rel: "noopener" }, `Read “${w.title}” on Wikipedia →`));
+  return parts;
+}
+
+function renderWiki() {
+  const box = $("wiki-content");
+  if (!state.trivia) { box.replaceChildren(); return; }
+  const w = state.trivia.wikipedia, ep = state.trivia.episode_wikipedia;
+  if (!w && !ep) {
+    const why = state.trivia.errors.wikipedia ? "Wikipedia didn't respond." : "No Wikipedia article found.";
+    box.replaceChildren(el("p", { className: "loading" }, why));
+    return;
+  }
+  // Episode plots are skipped like movie plots, so this stays spoiler-light.
+  box.replaceChildren(
+    ...(ep ? wikiArticle(ep, "This episode") : []),
+    ...(w ? wikiArticle(w, ep ? "The series" : null) : []),
+  );
 }
 
 // ---- Wiring ----------------------------------------------------------------

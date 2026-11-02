@@ -1,13 +1,14 @@
 # 🎬 Triviarr
 
-A small web app for your Unraid server. It shows what movie is playing on **Plex** or **Jellyfin** and displays trivia about it from **IMDb** and **Wikipedia**. It works on phones, tablets and computers.
+A small web app for your Unraid server. It shows what movie or TV show is playing on **Plex** or **Jellyfin** and displays trivia about it from **IMDb** and **Wikipedia**. It works on phones, tablets and computers.
 
 - **Play/pause** the movie from the button beside the progress bar. This works with most Jellyfin apps. For Plex, the player app must allow remote control (in many Plex apps the setting is called *Advertise as player*); Plex Web in a browser can't be controlled. If a command fails, the message says which routes were tried.
 - **Spotlight**: one fact at a time. Tap the card or use ← → to skip. The circular-arrows button turns auto-advance on (a new fact every 20 seconds) or off.
 - **Trivia**: the full list of IMDb trivia. Spoilers stay blurred until you tap them, unless you turn on the *Spoilers* toggle.
 - **Goofs**: IMDb's list of filming mistakes, continuity errors and factual slips, with spoilers blurred the same way. You can turn goofs off in Settings.
 - **Wikipedia**: production, release, reception and legacy sections from the film's article.
-- If several movies are playing, buttons at the top let you switch between them. When nothing is playing, you can look up any movie by name.
+- **TV shows**: facts about the episode on screen come first (IMDb trivia and goofs, plus its Wikipedia article when it has one), then facts about the series. Each item is labelled *This episode* or *Series*.
+- If several things are playing, buttons at the top let you switch between them. When nothing is playing, you can look up any movie by name.
 
 ## Install on Unraid
 

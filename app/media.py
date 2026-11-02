@@ -36,6 +36,28 @@ def _parse_guids(guids: list[dict] | None) -> dict:
     return ids
 
 
+_id_cache: dict[str, dict] = {}  # external IDs per library item; they don't change while playing
+
+
+async def _plex_ids(client: httpx.AsyncClient, headers: dict, rating_key: str | None) -> dict:
+    """IMDb/TMDb/TVDB IDs for a Plex library item (movie, show or episode)."""
+    if not rating_key:
+        return {}
+    cache_key = f"plex:{rating_key}"
+    if cache_key not in _id_cache:
+        try:
+            r = await client.get(
+                f"{config.S.plex_url}/library/metadata/{rating_key}", headers=headers, params={"includeGuids": 1},
+            )
+            r.raise_for_status()
+            md = (r.json().get("MediaContainer", {}).get("Metadata") or [{}])[0]
+            _id_cache[cache_key] = _parse_guids(md.get("Guid"))
+        except httpx.HTTPError as e:
+            log.warning("Plex metadata lookup failed: %s", e)
+            return {}
+    return _id_cache[cache_key]
+
+
 async def plex_sessions(client: httpx.AsyncClient) -> list[dict]:
     if not config.plex_configured():
         return []
@@ -46,36 +68,40 @@ async def plex_sessions(client: httpx.AsyncClient) -> list[dict]:
 
     results = []
     for m in items:
-        if m.get("type") != "movie":
+        if m.get("type") not in ("movie", "episode"):
             continue
         user = (m.get("User") or {}).get("title")
         if not _user_allowed(user):
             continue
         rating_key = str(m.get("ratingKey", ""))
-        ids = _parse_guids(m.get("Guid"))
-        if not ids and rating_key:
-            # Session payloads don't always carry external IDs; the library item does.
-            try:
-                meta = await client.get(
-                    f"{config.S.plex_url}/library/metadata/{rating_key}",
-                    headers=headers,
-                    params={"includeGuids": 1},
-                )
-                meta.raise_for_status()
-                md = (meta.json().get("MediaContainer", {}).get("Metadata") or [{}])[0]
-                ids = _parse_guids(md.get("Guid"))
-            except httpx.HTTPError as e:
-                log.warning("Plex metadata lookup failed: %s", e)
+        own_ids = _parse_guids(m.get("Guid")) or await _plex_ids(client, headers, rating_key)
+        if m["type"] == "episode":
+            # Trivia and artwork come from the show; the episode adds its own on top.
+            show_key = str(m.get("grandparentRatingKey") or "")
+            ids = await _plex_ids(client, headers, show_key)
+            info = {
+                "kind": "episode",
+                "item_id": show_key or rating_key,
+                "title": m.get("grandparentTitle"),
+                "year": m.get("parentYear") or m.get("year"),
+                "episode": {
+                    "title": m.get("title"),
+                    "season": m.get("parentIndex"),
+                    "number": m.get("index"),
+                    "imdb_id": own_ids.get("imdb"),
+                },
+            }
+        else:
+            ids = own_ids
+            info = {"kind": "movie", "item_id": rating_key, "title": m.get("title"), "year": m.get("year"), "episode": None}
+
         player = m.get("Player") or {}
-        duration = m.get("duration") or 0
         if player.get("machineIdentifier") and player.get("address"):
             _remember_player(player["machineIdentifier"], f"http://{player['address']}:{PLEX_COMPANION_PORT}")
         results.append({
             "key": f"plex:{rating_key}:{user or ''}",
             "source": "plex",
-            "item_id": rating_key,
-            "title": m.get("title"),
-            "year": m.get("year"),
+            **info,
             "tagline": m.get("tagline"),
             "imdb_id": ids.get("imdb"),
             "tmdb_id": ids.get("tmdb"),
@@ -83,7 +109,7 @@ async def plex_sessions(client: httpx.AsyncClient) -> list[dict]:
             "device": player.get("title") or player.get("product"),
             "state": player.get("state", "playing"),
             "position_ms": m.get("viewOffset") or 0,
-            "duration_ms": duration,
+            "duration_ms": m.get("duration") or 0,
             "control_id": player.get("machineIdentifier"),
             "controllable": bool(player.get("machineIdentifier")),
         })
@@ -120,6 +146,29 @@ async def _plex_clients(client: httpx.AsyncClient, headers: dict) -> None:
             _remember_player(c["machineIdentifier"], f"http://{host}:{c.get('port') or PLEX_COMPANION_PORT}", first=True)
 
 
+def _provider_ids(item: dict) -> dict:
+    return {k.lower(): v for k, v in (item.get("ProviderIds") or {}).items()}
+
+
+async def _jellyfin_series_ids(client: httpx.AsyncClient, headers: dict, series_id: str | None) -> dict:
+    if not series_id:
+        return {}
+    cache_key = f"jellyfin:{series_id}"
+    if cache_key not in _id_cache:
+        try:
+            r = await client.get(
+                f"{config.S.jellyfin_url}/Items", headers=headers,
+                params={"ids": series_id, "Fields": "ProviderIds,ProductionYear"},
+            )
+            r.raise_for_status()
+            series = (r.json().get("Items") or [{}])[0]
+            _id_cache[cache_key] = {**_provider_ids(series), "year": series.get("ProductionYear")}
+        except httpx.HTTPError as e:
+            log.warning("Jellyfin series lookup failed: %s", e)
+            return {}
+    return _id_cache[cache_key]
+
+
 async def jellyfin_sessions(client: httpx.AsyncClient) -> list[dict]:
     if not config.jellyfin_configured():
         return []
@@ -130,19 +179,36 @@ async def jellyfin_sessions(client: httpx.AsyncClient) -> list[dict]:
     results = []
     for s in r.json() or []:
         item = s.get("NowPlayingItem")
-        if not item or item.get("Type") != "Movie":
+        if not item or item.get("Type") not in ("Movie", "Episode"):
             continue
         user = s.get("UserName")
         if not _user_allowed(user):
             continue
-        ids = {k.lower(): v for k, v in (item.get("ProviderIds") or {}).items()}
+        if item["Type"] == "Episode":
+            ids = await _jellyfin_series_ids(client, headers, item.get("SeriesId"))
+            info = {
+                "kind": "episode",
+                "item_id": item.get("SeriesId") or item.get("Id"),
+                "title": item.get("SeriesName"),
+                "year": ids.get("year") or item.get("ProductionYear"),
+                "episode": {
+                    "title": item.get("Name"),
+                    "season": item.get("ParentIndexNumber"),
+                    "number": item.get("IndexNumber"),
+                    "imdb_id": _provider_ids(item).get("imdb"),
+                },
+            }
+        else:
+            ids = _provider_ids(item)
+            info = {
+                "kind": "movie", "item_id": item.get("Id"), "title": item.get("Name"),
+                "year": item.get("ProductionYear"), "episode": None,
+            }
         play = s.get("PlayState") or {}
         results.append({
             "key": f"jellyfin:{item.get('Id')}:{user or ''}",
             "source": "jellyfin",
-            "item_id": item.get("Id"),
-            "title": item.get("Name"),
-            "year": item.get("ProductionYear"),
+            **info,
             "tagline": (item.get("Taglines") or [None])[0],
             "imdb_id": ids.get("imdb"),
             "tmdb_id": ids.get("tmdb"),
