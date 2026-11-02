@@ -433,10 +433,51 @@ function renderTrivia() {
     $(kind + "-count").textContent = n ? `(${n})` : "";
   }
   renderGlance();
+  renderSourceLinks();
   renderSpotlight();
   renderImdbList("imdb", "IMDb trivia");
   renderImdbList("goofs", "IMDb goofs");
   renderWiki();
+}
+
+// Credit and link every source the page is showing for this title.
+function sourceLine(label, parts) {
+  const line = el("div");
+  line.append(label + ": ");
+  parts.forEach((p, i) => {
+    if (i) line.append(el("span", { className: "sep" }, "·"));
+    line.append(p.href ? el("a", { href: p.href, target: "_blank", rel: "noopener" }, p.text) : p.text);
+  });
+  return line;
+}
+
+function renderSourceLinks() {
+  const box = $("source-links");
+  const t = state.trivia;
+  if (!t) { box.hidden = true; return; }
+  const scope = isTv() ? state.tvView : undefined;
+  const imdbId = scope === "episode" ? t.episode_imdb_id : t.imdb_id;
+  const lines = [];
+
+  const imdb = [];
+  if (imdbId && shownItems("imdb").some((i) => i.scope === scope)) imdb.push({ text: "Trivia", href: `https://www.imdb.com/title/${imdbId}/trivia/` });
+  if (imdbId && shownItems("goofs").some((i) => i.scope === scope)) imdb.push({ text: "Goofs", href: `https://www.imdb.com/title/${imdbId}/goofs/` });
+  if (imdb.length) lines.push(sourceLine("IMDb", imdb));
+
+  const article = shownArticle(scope === "episode" ? "episode_wikipedia" : "wikipedia");
+  if (article && (article.intro.length || article.sections.length)) {
+    lines.push(sourceLine("Wikipedia", [
+      { text: article.title, href: article.url },
+      { text: "CC BY-SA 4.0", href: "https://creativecommons.org/licenses/by-sa/4.0/" },
+    ]));
+  }
+  if (omdbFor(scope)) lines.push(sourceLine("Ratings & awards", [{ text: "OMDb", href: "https://www.omdbapi.com/" }]));
+
+  const session = state.manual ? null : currentSession();
+  if (session) lines.push(sourceLine("Cast & artwork", [{ text: `your ${session.source === "plex" ? "Plex" : "Jellyfin"} server` }]));
+
+  box.replaceChildren(el("div", { className: "sub" }, "Sources"), ...lines);
+  box.hidden = !lines.length;
 }
 
 const RATING_SHORT = { IMDb: "IMDb", "Rotten Tomatoes": "RT", Metacritic: "MC" };
@@ -685,6 +726,11 @@ function renderPerson(p, data, session) {
     }
   }
   if (!about && !data.errors.imdb) parts.push(el("p", { className: "empty-note" }, "IMDb doesn't have more about them."));
+  const credits = [{ text: `your ${session.source === "plex" ? "Plex" : "Jellyfin"} library` }];
+  if (about) credits.push({ text: "IMDb", href: about.url });
+  const footer = el("footer", { className: "source-links" });
+  footer.append(sourceLine("Sources", credits));
+  parts.push(footer);
   $("person-body").replaceChildren(...parts);
 }
 

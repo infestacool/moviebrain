@@ -22,6 +22,7 @@ Trivia for whatever's playing on **Plex** or **Jellyfin**: IMDb trivia and goofs
 - **TV**: facts for the episode on screen, or toggle to the whole series.
 - **Ratings & awards** (optional OMDb key).
 - **Settings page** that saves as you go; choose sources, sections and goof kinds.
+- **Source links** at the bottom of every title and person page.
 - **Optional sign-in**: Plex, Pocket ID, Authentik or any OpenID Connect provider.
 
 ## Install

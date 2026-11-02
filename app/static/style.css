@@ -208,6 +208,12 @@ a { color: inherit; }
 .icon-link:hover { color: var(--text); }
 a.brand { color: var(--text); text-decoration: none; }
 
+/* Where this title's facts came from */
+.source-links { margin-top: 32px; padding-top: 14px; border-top: 1px solid var(--surface-2); font-size: 13px; color: var(--muted); line-height: 1.8; }
+.source-links a { color: var(--muted); }
+.source-links a:hover { color: var(--text); }
+.source-links .sep { margin: 0 6px; opacity: .6; }
+
 /* Cast */
 .cast-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
 .cast-card {
