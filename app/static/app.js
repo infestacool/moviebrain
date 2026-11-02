@@ -24,6 +24,8 @@ const state = {
   tab: store("tab") || "spotlight",
   showSpoilers: store("spoilers") === "1",
   deck: [], deckPos: 0, autoplay: store("autoplay") !== "0", spotStarted: 0,
+  interval: Number(store("interval")) || SPOTLIGHT_MS, // time per fact, ms
+  screen: false, // second-screen mode
 };
 
 function store(key, value) {
@@ -93,6 +95,7 @@ function render() {
     $("empty-detail").textContent = emptyMessage();
     const c = (state.serverInfo && state.serverInfo.configured) || {};
     $("setup-link").hidden = !!(c.plex || c.jellyfin) || !state.isAdmin;
+    renderScreen();
     return;
   }
 
@@ -104,6 +107,7 @@ function render() {
   if (key !== state.triviaFor) loadTrivia(movie, key);
   const castKey = session ? `${session.source}:${session.media_id}:${session.item_id}` : null;
   if (castKey !== state.castFor) loadCast(session, castKey);
+  renderScreen();
 }
 
 function emptyMessage() {
@@ -517,10 +521,12 @@ function renderSpotlight() {
     $("spot-source").textContent = "";
     $("spot-text").textContent = !state.trivia ? ""
       : `No trivia found for this ${subject()}.` + (subject() === "episode" ? SERIES_HINT : "");
+    renderScreen();
     return;
   }
   $("spot-source").textContent = `${item.source} · ${state.deckPos + 1}/${state.deck.length}`;
   $("spot-text").textContent = item.text;
+  renderScreen();
 }
 
 function renderAutoToggle() {
@@ -782,7 +788,11 @@ renderAutoToggle();
 
 
 document.addEventListener("keydown", (e) => {
-  if (e.target.tagName === "INPUT" || state.tab !== "spotlight") return;
+  if (state.screen) {
+    if (e.key === "Escape") exitScreen();
+    if (e.key === " ") { e.preventDefault(); toggleScreenPlay(); }
+  }
+  if (e.target.tagName === "INPUT" || (state.tab !== "spotlight" && !state.screen)) return;
   if (e.key === "ArrowRight") stepSpotlight(1);
   if (e.key === "ArrowLeft") stepSpotlight(-1);
 });
@@ -818,16 +828,135 @@ $("person").addEventListener("click", (e) => {
   if (e.target === e.currentTarget) e.currentTarget.close(); // tap outside the sheet closes it
 });
 
+// ---- Second screen ----------------------------------------------------------
+// A full-screen, hands-free view for a tablet or old phone near the TV: big facts that
+// advance on their own, the screen kept awake, controls that appear on tap.
+
+const SPEEDS = [10000, 20000, 40000, 60000];
+let wakeLock = null;
+let controlsTimer = null;
+
+async function keepAwake() {
+  if (!state.screen || !("wakeLock" in navigator)) return;
+  try { wakeLock = await navigator.wakeLock.request("screen"); } catch { /* not allowed right now */ }
+}
+
+function enterScreen() {
+  state.screen = true;
+  document.body.classList.add("screen-mode");
+  $("screen").hidden = false;
+  history.replaceState(null, "", "?screen");
+  // Full screen needs a tap, so this quietly does nothing when opened from a bookmark.
+  if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+  keepAwake();
+  $("screen-note").hidden = "wakeLock" in navigator;
+  $("screen-note").textContent = "This browser can't keep the screen on. Set the device's auto-lock to Never.";
+  state.spotStarted = Date.now();
+  renderScreen();
+  showControls();
+}
+
+function exitScreen() {
+  state.screen = false;
+  document.body.classList.remove("screen-mode", "screen-controls-on", "idle");
+  $("screen").hidden = true;
+  history.replaceState(null, "", location.pathname);
+  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+
+function showControls() {
+  document.body.classList.add("screen-controls-on");
+  document.body.classList.remove("idle");
+  clearTimeout(controlsTimer);
+  controlsTimer = setTimeout(() => document.body.classList.remove("screen-controls-on"), 4000);
+  setTimeout(() => { if (!document.body.classList.contains("screen-controls-on")) document.body.classList.add("idle"); }, 4100);
+}
+
+function toggleScreenPlay() {
+  state.autoplay = !state.autoplay;
+  store("autoplay", state.autoplay ? "1" : "0");
+  state.spotStarted = Date.now();
+  renderAutoToggle();
+  renderScreen();
+}
+
+function renderScreen() {
+  if (!state.screen) return;
+  const movie = state.movie, session = state.manual ? null : currentSession();
+  const ep = movie && movie.episode;
+  $("screen-title").textContent = !movie ? "Nothing playing"
+    : movie.title + (movie.year && !ep ? ` (${movie.year})` : "");
+  $("screen-sub").textContent = ep ? [episodeCode(ep), ep.title].filter(Boolean).join(" · ")
+    : session ? [session.state === "paused" ? "Paused" : "Now playing", session.device].filter(Boolean).join(" · ") : "";
+
+  const item = movie && state.deck[state.deckPos];
+  const text = item ? item.text
+    : !movie ? "Facts appear here when something starts playing on Plex or Jellyfin."
+    : state.trivia ? `No trivia found for this ${subject()}.` : "Finding trivia…";
+  const textEl = $("screen-text");
+  if (textEl.dataset.text !== text) {
+    textEl.dataset.text = text;
+    // Fade between facts so the change is easy on the eyes from across the room.
+    textEl.classList.add("fading");
+    setTimeout(() => {
+      textEl.textContent = text;
+      textEl.classList.toggle("long", text.length > 220);
+      textEl.classList.remove("fading");
+    }, textEl.textContent ? 300 : 0);
+  }
+  $("screen-source").textContent = item ? item.source : "Moviebrain";
+  $("screen-play").textContent = state.autoplay ? "❚❚" : "▶";
+  $("screen-play").setAttribute("aria-label", state.autoplay ? "Pause" : "Play");
+  $("screen-speed").textContent = `${state.interval / 1000}s per fact`;
+  tickScreen();
+}
+
+function tickScreen() {
+  $("screen-clock").textContent = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const s = state.manual ? null : currentSession();
+  $("screen-progress").style.width = s && s.duration_ms ? (100 * currentPosition(s) / s.duration_ms).toFixed(2) + "%" : "0";
+}
+
+$("spot-screen").onclick = enterScreen;
+$("empty-screen").onclick = enterScreen;
+$("screen-exit").onclick = (e) => { e.stopPropagation(); exitScreen(); };
+$("screen-prev").onclick = (e) => { e.stopPropagation(); stepSpotlight(-1); showControls(); };
+$("screen-next").onclick = (e) => { e.stopPropagation(); stepSpotlight(1); showControls(); };
+$("screen-play").onclick = (e) => { e.stopPropagation(); toggleScreenPlay(); showControls(); };
+$("screen-speed").onclick = (e) => {
+  e.stopPropagation();
+  state.interval = SPEEDS[(SPEEDS.indexOf(state.interval) + 1) % SPEEDS.length] || SPOTLIGHT_MS;
+  store("interval", String(state.interval));
+  state.spotStarted = Date.now();
+  renderScreen();
+  showControls();
+};
+// Tap shows the controls; swipe left or right changes fact.
+let touchX = null;
+$("screen").addEventListener("touchstart", (e) => { touchX = e.touches[0].clientX; }, { passive: true });
+$("screen").addEventListener("touchend", (e) => {
+  const dx = touchX === null ? 0 : e.changedTouches[0].clientX - touchX;
+  touchX = null;
+  if (Math.abs(dx) > 50) { stepSpotlight(dx < 0 ? 1 : -1); showControls(); }
+});
+$("screen").addEventListener("click", showControls);
+document.addEventListener("mousemove", () => { if (state.screen) showControls(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) keepAwake(); });
+
 // One-second tick: progress bar and spotlight auto-advance.
 setInterval(() => {
   if (state.movie) updateProgress();
   const bar = $("spot-timer").firstElementChild;
-  if (state.autoplay && state.deck.length > 1 && state.tab === "spotlight") {
-    const elapsed = Date.now() - state.spotStarted;
-    if (elapsed >= SPOTLIGHT_MS) stepSpotlight(1);
-    bar.style.width = Math.min(100, 100 * (Date.now() - state.spotStarted) / SPOTLIGHT_MS) + "%";
-  } else {
-    bar.style.width = "0";
+  const advancing = state.autoplay && state.deck.length > 1 && (state.tab === "spotlight" || state.screen);
+  if (advancing && Date.now() - state.spotStarted >= state.interval) stepSpotlight(1);
+  const done = advancing ? Math.min(100, 100 * (Date.now() - state.spotStarted) / state.interval) + "%" : "0";
+  bar.style.width = done;
+  if (state.screen) {
+    $("screen-timer").style.width = done;
+    tickScreen();
   }
 }, 1000);
 
@@ -846,6 +975,8 @@ $("signout").onclick = async () => {
   location.href = "/login";
 };
 
-Promise.all([loadAuth(), loadDisplayChoices()]).then(poll);
+Promise.all([loadAuth(), loadDisplayChoices()]).then(poll).then(() => {
+  if (new URLSearchParams(location.search).has("screen")) enterScreen();
+});
 setInterval(poll, POLL_MS);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });

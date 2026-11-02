@@ -32,6 +32,32 @@
     </div>
   </header>
 
+  <section id="screen" class="screen" hidden aria-live="polite">
+    <div class="screen-top">
+      <div class="screen-heading">
+        <div id="screen-title" class="screen-title"></div>
+        <div id="screen-sub" class="screen-sub"></div>
+      </div>
+      <div id="screen-clock" class="screen-clock"></div>
+    </div>
+    <div class="screen-fact">
+      <div id="screen-source" class="screen-source"></div>
+      <p id="screen-text" class="screen-text"></p>
+    </div>
+    <div class="screen-bottom">
+      <div class="screen-progress"><div id="screen-progress"></div></div>
+      <div class="screen-timer"><div id="screen-timer"></div></div>
+    </div>
+    <div class="screen-controls" role="toolbar" aria-label="Second screen controls">
+      <button id="screen-prev" aria-label="Previous fact">‹</button>
+      <button id="screen-play" aria-label="Pause"></button>
+      <button id="screen-next" aria-label="Next fact">›</button>
+      <button id="screen-speed" class="wide" title="Time per fact"></button>
+      <button id="screen-exit" class="wide">Exit</button>
+      <p id="screen-note" class="screen-note" hidden></p>
+    </div>
+  </section>
+
   <nav id="sessions" class="sessions" hidden></nav>
 
   <main>
@@ -39,6 +65,7 @@
       <div class="empty-icon">🍿</div>
       <h1>Nothing playing</h1>
       <p id="empty-detail">Start a movie or TV show on Plex or Jellyfin and its trivia will appear here.</p>
+      <p class="screen-link"><button id="empty-screen" class="link-reset">Open second screen</button></p>
       <p id="setup-link" hidden><a class="link-button" href="/settings">Open settings</a></p>
       <form id="search" class="search">
         <input id="search-input" type="search" placeholder="Or look up any movie…" autocomplete="off">
@@ -87,6 +114,9 @@
           </button>
           <button id="spot-next" class="icon-button" aria-label="Next fact">
             <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6 8.6 7.4l4.6 4.6-4.6 4.6L10 18l6-6z"/></svg>
+          </button>
+          <button id="spot-screen" class="icon-button" aria-label="Second screen" title="Second screen: big, hands-free facts for a tablet by the TV">
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5v2H6v3H4zm11-5h5v5h-2V6h-3V4zM4 15h2v3h3v2H4v-5zm14 3v-3h2v5h-5v-2h3z"/></svg>
           </button>
         </div>
         <p id="spot-note" class="spot-note" aria-live="polite"></p>
