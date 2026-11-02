@@ -5,6 +5,14 @@ const SPOTLIGHT_MS = 20000;
 
 const $ = (id) => document.getElementById(id);
 
+// Preferences used to be saved under "mt:"; move them to "mb:" once.
+try {
+  for (const k of Object.keys(localStorage).filter((k) => k.startsWith("mt:"))) {
+    if (localStorage.getItem("mb:" + k.slice(3)) === null) localStorage.setItem("mb:" + k.slice(3), localStorage.getItem(k));
+    localStorage.removeItem(k);
+  }
+} catch { /* storage unavailable */ }
+
 const state = {
   sessions: [],
   selectedKey: store("selectedKey"),
@@ -20,8 +28,8 @@ const state = {
 
 function store(key, value) {
   try {
-    if (value === undefined) return localStorage.getItem("mt:" + key);
-    localStorage.setItem("mt:" + key, value);
+    if (value === undefined) return localStorage.getItem("mb:" + key);
+    localStorage.setItem("mb:" + key, value);
   } catch { return null; }
 }
 
