@@ -156,9 +156,6 @@ function renderHero(movie, session) {
   updateProgress();
 }
 
-const ICON_PAUSE = "M6 5h4v14H6zM14 5h4v14h-4z";
-const ICON_PLAY = "M8 5v14l11-7z";
-
 function currentPosition(s) {
   let pos = s.position_ms;
   if (s.state === "playing") pos += Date.now() - state.polledAt;
@@ -167,64 +164,11 @@ function currentPosition(s) {
 
 function updateProgress() {
   const s = state.manual ? null : currentSession();
-  $("playback").hidden = !s;
-  if (!s) return;
-
-  const btn = $("play-toggle");
-  const playing = s.state === "playing";
-  $("play-icon").setAttribute("d", playing ? ICON_PAUSE : ICON_PLAY);
-  // aria-disabled instead of disabled, so a tap can still explain why it doesn't work.
-  btn.setAttribute("aria-disabled", String(!s.controllable));
-  btn.setAttribute("aria-label", (playing ? "Pause" : "Resume") + " the movie");
-  btn.title = s.controllable ? `${playing ? "Pause" : "Resume"} on ${s.device || "the player"}` : "This player can't be controlled remotely";
-
-  $("progress").hidden = !s.duration_ms;
-  $("progress-text").textContent = "";
-  if (!s.duration_ms) return;
+  $("playback").hidden = !(s && s.duration_ms);
+  if (!s || !s.duration_ms) return;
   const pos = currentPosition(s);
   $("progress-bar").style.width = (100 * pos / s.duration_ms).toFixed(2) + "%";
   $("progress-text").textContent = `${fmtTime(pos)} / ${fmtTime(s.duration_ms)} · ${fmtTime(s.duration_ms - pos)} left`;
-}
-
-let playbackErrorTimer;
-function showPlaybackError(message) {
-  const el = $("playback-error");
-  el.textContent = message;
-  el.hidden = !message;
-  clearTimeout(playbackErrorTimer);
-  if (message) playbackErrorTimer = setTimeout(() => { el.hidden = true; }, 8000);
-}
-
-async function togglePlayback() {
-  const s = currentSession();
-  if (!s) return;
-  if (!s.controllable) { showPlaybackError(`${s.device || "This player"} can't be controlled remotely.`); return; }
-  const action = s.state === "playing" ? "pause" : "play";
-  const btn = $("play-toggle");
-  btn.classList.add("busy");
-  showPlaybackError("");
-  // Update the screen right away; the next poll confirms what the player really did.
-  const previous = { state: s.state, position_ms: s.position_ms, polledAt: state.polledAt };
-  s.position_ms = currentPosition(s);
-  state.polledAt = Date.now();
-  s.state = action === "pause" ? "paused" : "playing";
-  updateProgress();
-  try {
-    const res = await fetch("/api/playback", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ key: s.key, action }),
-    });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
-    setTimeout(poll, 1500);
-  } catch (e) {
-    Object.assign(s, { state: previous.state, position_ms: previous.position_ms });
-    state.polledAt = previous.polledAt;
-    showPlaybackError(e.message);
-    updateProgress();
-  } finally {
-    btn.classList.remove("busy");
-  }
 }
 
 function setBackdrop(url) {
@@ -278,14 +222,80 @@ async function loadTrivia(movie, key) {
   renderTrivia();
 }
 
+// ---- Sources and sections (chosen per device) -------------------------------
+
+const SOURCES = [["imdb", "IMDb trivia"], ["goofs", "IMDb goofs"], ["wiki", "Wikipedia"]];
+const SCOPES = [["episode", "This episode"], ["series", "The series"]];
+// Wikipedia headings vary by article, so sections are grouped by keywords in their top-level heading.
+const WIKI_GROUPS = [
+  ["overview", "Overview", null],
+  ["production", "Production", /produc|develop|writ|cast|film|shoot|design|effect|cinematograph|concept|animation|make-?up|costume|stunt|inspir/],
+  ["music", "Music", /music|soundtrack|score|song/],
+  ["release", "Release", /release|marketing|distribut|home media|broadcast|premiere|promot|airing|syndicat|stream/],
+  ["reception", "Reception", /recept|box office|critic|review|rating|viewer|audience|response/],
+  ["awards", "Awards", /accolade|award|nominat|honou?r/],
+  ["themes", "Themes & analysis", /theme|analys|interpret|style|symbol|motif/],
+  ["legacy", "Legacy", /legacy|cultur|impact|sequel|prequel|remake|adapt|franchise|spin|future|reboot|influence/],
+  ["other", "Other", null],
+];
+const GOOF_GROUPS = [
+  ["continuity", "Continuity", /continuity/],
+  ["factual", "Factual errors", /factual|anachronism|geograph/],
+  ["revealing", "Revealing mistakes", /revealing/],
+  ["crew", "Crew or equipment visible", /crew|equipment/],
+  ["plot", "Plot holes", /plot hole/],
+  ["character", "Character errors", /character/],
+  ["notgoofs", "Not really goofs", /incorrectly regarded/],
+  ["other", "Other", null],
+];
+
+function groupOf(groups, text) {
+  const t = (text || "").toLowerCase();
+  const hit = groups.find(([, , re]) => re && re.test(t));
+  return hit ? hit[0] : "other";
+}
+
+function loadFilters() {
+  let saved = {};
+  try { saved = JSON.parse(store("filters") || "{}"); } catch { /* ignore a corrupt value */ }
+  const all = (list) => Object.fromEntries(list.map(([k]) => [k, true]));
+  return {
+    sources: { ...all(SOURCES), ...saved.sources },
+    scopes: { ...all(SCOPES), ...saved.scopes },
+    wiki: { ...all(WIKI_GROUPS), ...saved.wiki },
+    goofs: { ...all(GOOF_GROUPS), ...saved.goofs },
+  };
+}
+state.filters = loadFilters();
+
 // kind is "imdb" (trivia) or "goofs", matching the API's field names.
 function imdbItems(kind = "imdb") {
   return (state.trivia && state.trivia[kind]) || [];
 }
 
+// The items this device has chosen to see.
+function shownItems(kind) {
+  const f = state.filters;
+  if (!f.sources[kind]) return [];
+  return imdbItems(kind).filter((t) =>
+    (!t.scope || f.scopes[t.scope]) && (kind !== "goofs" || f.goofs[groupOf(GOOF_GROUPS, t.category)]));
+}
+
 // which is "wikipedia" (the movie or show) or "episode_wikipedia".
-function wikiParagraphs(which = "wikipedia") {
+function shownArticle(which) {
+  const f = state.filters;
   const w = state.trivia && state.trivia[which];
+  if (!w || !f.sources.wiki) return null;
+  if (isTv() && !f.scopes[which === "episode_wikipedia" ? "episode" : "series"]) return null;
+  return {
+    ...w,
+    intro: f.wiki.overview ? w.intro : [],
+    sections: w.sections.filter((s) => f.wiki[groupOf(WIKI_GROUPS, s.title.split(" › ")[0])]),
+  };
+}
+
+function wikiParagraphs(which = "wikipedia") {
+  const w = shownArticle(which);
   if (!w) return [];
   return w.sections.flatMap((s) => s.paragraphs.map((p) => ({ section: s.title, text: p })));
 }
@@ -310,7 +320,7 @@ const SCOPE_LABELS = { episode: "This episode", series: "Series" };
 
 // scope is "episode", "series", or undefined for movies.
 function imdbCards(kind, label, scope) {
-  return imdbItems(kind)
+  return shownItems(kind)
     .filter((t) => t.scope === scope && (state.showSpoilers || !t.spoiler))
     .map((t) => {
       const where = scope ? SCOPE_LABELS[scope] + " · " : "";
@@ -353,10 +363,16 @@ function buildDeck() {
 }
 
 function renderTrivia() {
-  document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === state.tab));
+  const f = state.filters;
+  const tabSource = { imdb: "imdb", goofs: "goofs", wiki: "wiki" };
+  if (tabSource[state.tab] && !f.sources[tabSource[state.tab]]) state.tab = "spotlight";
+  document.querySelectorAll(".tabs button").forEach((b) => {
+    b.classList.toggle("active", b.dataset.tab === state.tab);
+    b.hidden = !!tabSource[b.dataset.tab] && !f.sources[tabSource[b.dataset.tab]];
+  });
   ["spotlight", "imdb", "goofs", "wiki"].forEach((t) => { $("tab-" + t).hidden = t !== state.tab; });
   for (const kind of ["imdb", "goofs"]) {
-    const n = imdbItems(kind).length;
+    const n = shownItems(kind).length;
     $(kind + "-count").textContent = n ? `(${n})` : "";
   }
   renderSpotlight();
@@ -391,10 +407,12 @@ function stepSpotlight(delta) {
 
 function renderImdbList(kind, label) {
   const list = $(kind + "-list");
-  const items = imdbItems(kind);
+  const items = shownItems(kind);
   if (!state.trivia) { list.replaceChildren(); return; }
   if (!items.length) {
-    const why = state.trivia.errors[kind] ? "IMDb didn't respond." : `No ${label} for this ${isTv() ? "show" : "movie"}.`;
+    const why = state.trivia.errors[kind] ? "IMDb didn't respond."
+      : imdbItems(kind).length ? "Everything here is hidden by your Sources choices."
+      : `No ${label} for this ${isTv() ? "show" : "movie"}.`;
     list.replaceChildren(el("li", {}, why));
     return;
   }
@@ -434,16 +452,19 @@ function wikiArticle(w, heading) {
 function renderWiki() {
   const box = $("wiki-content");
   if (!state.trivia) { box.replaceChildren(); return; }
-  const w = state.trivia.wikipedia, ep = state.trivia.episode_wikipedia;
-  if (!w && !ep) {
-    const why = state.trivia.errors.wikipedia ? "Wikipedia didn't respond." : "No Wikipedia article found.";
+  const w = shownArticle("wikipedia"), ep = shownArticle("episode_wikipedia");
+  const empty = (a) => !a || (!a.intro.length && !a.sections.length);
+  if (empty(w) && empty(ep)) {
+    const why = state.trivia.errors.wikipedia ? "Wikipedia didn't respond."
+      : state.trivia.wikipedia || state.trivia.episode_wikipedia ? "Everything here is hidden by your Sources choices."
+      : "No Wikipedia article found.";
     box.replaceChildren(el("p", { className: "loading" }, why));
     return;
   }
   // Episode plots are skipped like movie plots, so this stays spoiler-light.
   box.replaceChildren(
-    ...(ep ? wikiArticle(ep, "This episode") : []),
-    ...(w ? wikiArticle(w, ep ? "The series" : null) : []),
+    ...(!empty(ep) ? wikiArticle(ep, "This episode") : []),
+    ...(!empty(w) ? wikiArticle(w, !empty(ep) ? "The series" : null) : []),
   );
 }
 
@@ -453,13 +474,28 @@ document.querySelectorAll(".tabs button").forEach((b) => {
   b.onclick = () => { state.tab = b.dataset.tab; store("tab", state.tab); renderTrivia(); };
 });
 
-$("spoilers").checked = state.showSpoilers;
-$("spoilers").onchange = (e) => {
-  state.showSpoilers = e.target.checked;
+const EYE_OPEN = "M12 5C6.5 5 2.7 9.4 1.5 12c1.2 2.6 5 7 10.5 7s9.3-4.4 10.5-7C21.3 9.4 17.5 5 12 5zm0 11.5a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9zm0-7a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z";
+const EYE_SHUT = "M2.3 3.7 3.7 2.3l18 18-1.4 1.4-3.4-3.4A11 11 0 0 1 12 19C6.5 19 2.7 14.6 1.5 12a13 13 0 0 1 3.9-4.9zM12 5c5.5 0 9.3 4.4 10.5 7a13 13 0 0 1-2.9 4L16.4 12.8A4.5 4.5 0 0 0 11.2 7.6L8.9 5.3A11 11 0 0 1 12 5zm-4.4 5.2 6.2 6.2A4.5 4.5 0 0 1 7.6 10.2z";
+
+function renderSpoilerToggle() {
+  const btn = $("spoilers");
+  btn.setAttribute("aria-pressed", String(state.showSpoilers));
+  $("spoiler-icon").setAttribute("d", state.showSpoilers ? EYE_OPEN : EYE_SHUT);
+  btn.title = state.showSpoilers ? "Spoilers shown: tap to hide them" : "Spoilers hidden: tap a blurred fact to reveal it";
+}
+
+$("spoilers").onclick = () => {
+  state.showSpoilers = !state.showSpoilers;
   store("spoilers", state.showSpoilers ? "1" : "0");
+  renderSpoilerToggle();
+  // Keep the current Spotlight fact and the reader's place in the lists.
+  const current = state.deck[state.deckPos];
   buildDeck();
+  const kept = current ? state.deck.findIndex((c) => c.text === current.text) : -1;
+  if (kept >= 0) state.deckPos = kept;
   renderTrivia();
 };
+renderSpoilerToggle();
 
 $("spot-next").onclick = () => stepSpotlight(1);
 $("spot-prev").onclick = () => stepSpotlight(-1);
@@ -478,7 +514,6 @@ $("spot-auto").onclick = () => {
 };
 renderAutoToggle();
 
-$("play-toggle").onclick = togglePlayback;
 
 document.addEventListener("keydown", (e) => {
   if (e.target.tagName === "INPUT" || state.tab !== "spotlight") return;
@@ -499,6 +534,51 @@ $("back-to-playing").onclick = () => {
   state.manual = null;
   state.triviaFor = null;
   render();
+};
+
+function renderSourcesForm() {
+  const f = state.filters;
+  const group = (title, key, options, extraClass = "") => {
+    const box = el("div", { className: "filter-group " + extraClass });
+    box.append(el("h3", {}, title));
+    const chips = el("div", { className: "chips" });
+    for (const [value, label] of options) {
+      const chip = el("label", { className: "chip" });
+      const input = el("input", { type: "checkbox", checked: !!f[key][value] });
+      input.onchange = () => { f[key][value] = input.checked; applyFilters(); };
+      chip.append(input, el("span", {}, label));
+      chips.append(chip);
+    }
+    box.append(chips);
+    return box;
+  };
+  $("sources-form").replaceChildren(
+    group("Show", "sources", SOURCES),
+    ...(isTv() ? [group("TV facts about", "scopes", SCOPES)] : []),
+    group("Wikipedia sections", "wiki", WIKI_GROUPS, f.sources.wiki ? "" : "off"),
+    group("Kinds of goofs", "goofs", GOOF_GROUPS, f.sources.goofs ? "" : "off"),
+  );
+}
+
+function applyFilters() {
+  store("filters", JSON.stringify(state.filters));
+  renderSourcesForm();
+  buildDeck();
+  renderTrivia();
+}
+
+$("sources-button").onclick = () => {
+  renderSourcesForm();
+  const dialog = $("sources-dialog");
+  if (dialog.showModal) dialog.showModal(); else dialog.setAttribute("open", "");
+};
+$("sources-dialog").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) e.currentTarget.close(); // tap outside the sheet closes it
+});
+$("sources-reset").onclick = () => {
+  store("filters", "{}");
+  state.filters = loadFilters();
+  applyFilters();
 };
 
 // One-second tick: progress bar and spotlight auto-advance.

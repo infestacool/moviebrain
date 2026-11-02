@@ -5,7 +5,6 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-import httpx
 from fastapi import Body, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -73,17 +72,6 @@ async def get_trivia(
     except Exception as e:  # network trouble resolving the film
         log.exception("Trivia lookup failed")
         raise HTTPException(502, f"Trivia lookup failed: {e}")
-
-
-@app.post("/api/playback")
-async def playback(body: dict = Body(...)):
-    try:
-        await media.set_playback(str(body.get("key", "")), str(body.get("action", "")))
-    except ValueError as e:
-        raise HTTPException(400, str(e))
-    except httpx.HTTPError as e:
-        raise HTTPException(502, f"Couldn't reach the media server: {e}")
-    return {"ok": True}
 
 
 @app.get("/api/image/{source}/{item_id}/{kind}")

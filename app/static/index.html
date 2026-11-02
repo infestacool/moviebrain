@@ -16,10 +16,13 @@
   <header class="topbar">
     <div class="brand">🎬 Triviarr</div>
     <div class="actions">
-      <label class="toggle" title="Show spoilers without tapping">
-        <input type="checkbox" id="spoilers"> <span>Spoilers</span>
-      </label>
-      <a id="settings-link" class="icon-link" href="/settings" title="Settings" hidden>⚙︎ Settings</a>
+      <button id="sources-button" class="pill-toggle" title="Choose sources and sections">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg><span class="label">Sources</span>
+      </button>
+      <button id="spoilers" class="pill-toggle" aria-pressed="false" title="Spoilers hidden: tap a blurred fact to reveal it">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path id="spoiler-icon" d=""/></svg><span class="label">Spoilers</span>
+      </button>
+      <a id="settings-link" class="icon-link" href="/settings" title="Settings" aria-label="Settings" hidden>⚙︎<span class="label"> Settings</span></a>
       <button id="signout" class="icon-link" title="Sign out" hidden>Sign out</button>
     </div>
   </header>
@@ -47,15 +50,9 @@
           <p id="tagline" class="tagline"></p>
           <p id="meta" class="meta"></p>
           <div id="playback" class="playback" hidden>
-            <button id="play-toggle" class="play-toggle icon-button" aria-label="Pause movie">
-              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path id="play-icon" d=""/></svg>
-            </button>
-            <div class="playback-track">
-              <div id="progress" class="progress"><div id="progress-bar"></div></div>
-              <p id="progress-text" class="meta small"></p>
-            </div>
+            <div id="progress" class="progress"><div id="progress-bar"></div></div>
+            <p id="progress-text" class="meta small"></p>
           </div>
-          <p id="playback-error" class="playback-error" hidden></p>
         </div>
       </div>
 
@@ -104,6 +101,18 @@
       <button id="back-to-playing" class="link-button" hidden>← Back to what's playing</button>
     </section>
   </main>
+
+  <dialog id="sources-dialog" class="sheet" aria-labelledby="sources-title">
+    <form method="dialog">
+      <div class="sheet-head">
+        <h2 id="sources-title">Sources</h2>
+        <button class="sheet-done" value="done">Done</button>
+      </div>
+      <p class="hint">Choose what to show on this device.</p>
+      <div id="sources-form"></div>
+      <button type="button" id="sources-reset" class="link-reset">Show everything</button>
+    </form>
+  </dialog>
 
   <script src="/static/app.js"></script>
 </body>

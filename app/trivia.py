@@ -376,9 +376,9 @@ async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None
             tasks.append((name, "episode", imdb_items(episode_imdb, imdb_kind)))
         if ids["imdb_id"]:
             tasks.append((name, "series" if is_tv else None, imdb_items(ids["imdb_id"], imdb_kind)))
-    if ids["wiki_title"]:
+    if ids["wiki_title"] and config.S.include_wikipedia:
         tasks.append(("wikipedia", None, wikipedia(ids["wiki_title"])))
-    if episode_imdb:
+    if episode_imdb and config.S.include_wikipedia:
         tasks.append(("episode_wikipedia", None, _episode_wikipedia(episode_imdb)))
 
     results = await asyncio.gather(*(t[2] for t in tasks), return_exceptions=True)
