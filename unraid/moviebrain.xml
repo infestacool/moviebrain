@@ -12,7 +12,7 @@
   <Overview>Shows trivia from IMDb and Wikipedia for the movie or TV episode currently playing on Plex or Jellyfin. Set up your servers and optional sign-in (Plex or Pocket ID) from the Settings page in the web UI.</Overview>
   <Category>MediaServer:Other</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
-  <Icon>https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/1f3ac.png</Icon>
+  <Icon>https://raw.githubusercontent.com/infestacool/moviebrain/main/app/static/icons/icon-512.png</Icon>
   <Config Name="Web UI Port" Target="8080" Default="8085" Mode="tcp" Description="Port for the web page" Type="Port" Display="always" Required="true" Mask="false">8085</Config>
   <Config Name="Config" Target="/config" Default="/mnt/user/appdata/moviebrain" Mode="rw" Description="Where settings are saved" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/moviebrain</Config>
   <Config Name="Plex URL" Target="PLEX_URL" Default="" Description="Optional - can also be set in the web UI. e.g. http://0.0.0.0:32400" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>

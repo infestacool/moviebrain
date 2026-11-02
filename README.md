@@ -23,6 +23,7 @@ Trivia for whatever's playing on **Plex** or **Jellyfin**: IMDb trivia and goofs
 - **Ratings & awards** (optional OMDb key).
 - **Settings page** that saves as you go; choose sources, sections and goof kinds.
 - **Source links** at the bottom of every title and person page.
+- **Add to Home Screen** on iPhone, iPad or Android for an app icon and full-screen view.
 - **Optional sign-in**: Plex, Pocket ID, Authentik or any OpenID Connect provider.
 
 ## Install
@@ -94,4 +95,4 @@ Each push to `main` builds the image; the x86-64 build is started and checked be
 
 ## License
 
-[MIT](LICENSE). Not affiliated with IMDb, Plex, Jellyfin, Wikipedia or OMDb. Icon: [Twemoji](https://github.com/twitter/twemoji) (CC BY 4.0). Screenshot poster: *Charade* (1963), public domain via Wikimedia Commons.
+[MIT](LICENSE). Not affiliated with IMDb, Plex, Jellyfin, Wikipedia or OMDb. Brain icon artwork: [Twemoji](https://github.com/jdecked/twemoji) (CC BY 4.0). Screenshot poster: *Charade* (1963), public domain via Wikimedia Commons.
