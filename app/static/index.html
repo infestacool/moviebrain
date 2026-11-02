@@ -63,6 +63,7 @@
         <button role="tab" data-tab="imdb">Trivia <span id="imdb-count" class="count"></span></button>
         <button role="tab" data-tab="goofs">Goofs <span id="goofs-count" class="count"></span></button>
         <button role="tab" data-tab="wiki">Wikipedia</button>
+        <button role="tab" data-tab="cast">Cast</button>
       </div>
 
       <div id="loading" class="loading" hidden>Finding trivia…</div>
@@ -100,9 +101,26 @@
         <div id="wiki-content"></div>
       </div>
 
+      <div id="tab-cast" class="panel" hidden>
+        <div id="cast-grid" class="cast-grid"></div>
+      </div>
+
       <button id="back-to-playing" class="link-button" hidden>← Back to what's playing</button>
     </section>
   </main>
+
+  <dialog id="person" class="sheet" aria-labelledby="person-name">
+    <div class="sheet-inner">
+      <div class="sheet-head">
+        <div class="person-head">
+          <div id="person-photo" class="avatar large"></div>
+          <div><h2 id="person-name"></h2><p id="person-meta" class="meta"></p></div>
+        </div>
+        <button id="person-close" class="sheet-close" aria-label="Close">✕</button>
+      </div>
+      <div id="person-body"></div>
+    </div>
+  </dialog>
 
   <script src="/static/app.js"></script>
 </body>

@@ -74,7 +74,8 @@ async def plex_sessions(client: httpx.AsyncClient) -> list[dict]:
             ids = await _plex_ids(client, headers, show_key)
             info = {
                 "kind": "episode",
-                "item_id": show_key or rating_key,
+                "item_id": show_key or rating_key,  # the show: artwork and series cast
+                "media_id": rating_key,             # the episode itself
                 "title": m.get("grandparentTitle"),
                 "year": m.get("parentYear") or m.get("year"),
                 "episode": {
@@ -86,7 +87,8 @@ async def plex_sessions(client: httpx.AsyncClient) -> list[dict]:
             }
         else:
             ids = own_ids
-            info = {"kind": "movie", "item_id": rating_key, "title": m.get("title"), "year": m.get("year"), "episode": None}
+            info = {"kind": "movie", "item_id": rating_key, "media_id": rating_key, "title": m.get("title"),
+                    "year": m.get("year"), "episode": None}
 
         player = m.get("Player") or {}
         results.append({
@@ -148,6 +150,7 @@ async def jellyfin_sessions(client: httpx.AsyncClient) -> list[dict]:
             info = {
                 "kind": "episode",
                 "item_id": item.get("SeriesId") or item.get("Id"),
+                "media_id": item.get("Id"),
                 "title": item.get("SeriesName"),
                 "year": ids.get("year") or item.get("ProductionYear"),
                 "episode": {
@@ -160,7 +163,7 @@ async def jellyfin_sessions(client: httpx.AsyncClient) -> list[dict]:
         else:
             ids = _provider_ids(item)
             info = {
-                "kind": "movie", "item_id": item.get("Id"), "title": item.get("Name"),
+                "kind": "movie", "item_id": item.get("Id"), "media_id": item.get("Id"), "title": item.get("Name"),
                 "year": item.get("ProductionYear"), "episode": None,
             }
         play = s.get("PlayState") or {}

@@ -94,6 +94,8 @@ function render() {
   const key = (movie.imdb_id || movie.tmdb_id || `${movie.title}|${movie.year || ""}`) +
     (ep ? `|${ep.imdb_id || `s${ep.season}e${ep.number}`}` : "");
   if (key !== state.triviaFor) loadTrivia(movie, key);
+  const castKey = session ? `${session.source}:${session.media_id}:${session.item_id}` : null;
+  if (castKey !== state.castFor) loadCast(session, castKey);
 }
 
 function emptyMessage() {
@@ -405,12 +407,14 @@ function renderTrivia() {
   renderTvView();
   const f = state.filters;
   const tabSource = { imdb: "imdb", goofs: "goofs", wiki: "wiki" };
-  if (tabSource[state.tab] && !f.sources[tabSource[state.tab]]) state.tab = "spotlight";
+  // The cast comes from the media server, so it isn't there for titles looked up by hand.
+  const tabShown = (tab) => (tab === "cast" ? !state.manual : !tabSource[tab] || f.sources[tabSource[tab]]);
+  if (!tabShown(state.tab)) state.tab = "spotlight";
   document.querySelectorAll(".tabs button").forEach((b) => {
     b.classList.toggle("active", b.dataset.tab === state.tab);
-    b.hidden = !!tabSource[b.dataset.tab] && !f.sources[tabSource[b.dataset.tab]];
+    b.hidden = !tabShown(b.dataset.tab);
   });
-  ["spotlight", "imdb", "goofs", "wiki"].forEach((t) => { $("tab-" + t).hidden = t !== state.tab; });
+  ["spotlight", "imdb", "goofs", "wiki", "cast"].forEach((t) => { $("tab-" + t).hidden = t !== state.tab; });
   for (const kind of ["imdb", "goofs"]) {
     const n = shownItems(kind).length;
     $(kind + "-count").textContent = n ? `(${n})` : "";
@@ -543,6 +547,134 @@ function renderWiki() {
   );
 }
 
+// ---- Cast -------------------------------------------------------------------
+
+function initials(name) {
+  return name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+}
+
+function avatar(person, className = "avatar") {
+  const box = el("div", { className });
+  if (person.photo) {
+    const img = el("img", { src: person.photo, alt: "", loading: "lazy" });
+    img.onerror = () => box.replaceChildren(initials(person.name));
+    box.append(img);
+  } else {
+    box.textContent = initials(person.name);
+  }
+  return box;
+}
+
+async function loadCast(session, key) {
+  state.castFor = key;
+  state.cast = null;
+  renderCast();
+  if (!session) return;
+  const params = new URLSearchParams({ source: session.source, item: session.media_id });
+  if (session.kind === "episode") params.set("show", session.item_id);
+  try {
+    const res = await fetch("/api/cast?" + params);
+    const data = await res.json();
+    if (state.castFor === key) state.cast = data.cast || [];
+  } catch {
+    if (state.castFor === key) state.cast = [];
+  }
+  renderCast();
+}
+
+function renderCast() {
+  const grid = $("cast-grid");
+  if (!state.cast) { grid.replaceChildren(el("p", { className: "loading" }, "Finding the cast…")); return; }
+  if (!state.cast.length) { grid.replaceChildren(el("p", { className: "loading" }, "Your media server doesn't list a cast for this.")); return; }
+  grid.replaceChildren(...state.cast.map((p) => {
+    const card = el("button", { className: "cast-card" });
+    const who = el("span", { className: "who" });
+    who.append(el("span", { className: "name" }, p.name));
+    if (p.role) who.append(el("span", { className: "role" }, p.role));
+    if (p.guest) who.append(el("span", { className: "tag" }, "Guest star"));
+    card.append(avatar(p), who);
+    card.onclick = () => openPerson(p);
+    return card;
+  }));
+}
+
+async function openPerson(p) {
+  const session = currentSession();
+  if (!session) return;
+  const dialog = $("person");
+  $("person-photo").replaceWith(Object.assign(avatar(p, "avatar large"), { id: "person-photo" }));
+  $("person-name").textContent = p.name;
+  $("person-meta").textContent = p.role ? `${p.role} in ${session.title}` : "";
+  $("person-body").replaceChildren(el("p", { className: "loading" }, "Looking them up…"));
+  if (dialog.showModal) dialog.showModal(); else dialog.setAttribute("open", "");
+
+  const params = new URLSearchParams({ source: session.source, id: p.id, name: p.name });
+  try {
+    const res = await fetch("/api/person?" + params);
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+    const data = await res.json();
+    if ($("person-name").textContent === p.name) renderPerson(p, data, session);
+  } catch (e) {
+    $("person-body").replaceChildren(el("p", { className: "error" }, "Couldn't look them up: " + e.message));
+  }
+}
+
+function renderPerson(p, data, session) {
+  const parts = [];
+  const about = data.imdb;
+  if (about && (about.born || about.died)) {
+    $("person-meta").textContent = [p.role && `${p.role} in ${session.title}`,
+      about.born && `Born ${about.born}`, about.died && `died ${about.died}`].filter(Boolean).join(" · ");
+  }
+
+  // Other titles in your library, not counting the one on screen.
+  const elsewhere = data.library.filter((t) => t.item_id !== session.item_id);
+  parts.push(el("h3", {}, "In your library"));
+  if (elsewhere.length) {
+    const shelf = el("div", { className: "shelf" });
+    for (const t of elsewhere) {
+      const item = el("div", { className: "shelf-item" });
+      const cover = el("div", { className: "cover" });
+      cover.append(el("span", {}, t.title));
+      const img = el("img", { src: `/api/image/${session.source}/${t.item_id}/poster`, alt: "", loading: "lazy" });
+      img.onerror = () => img.remove();
+      cover.append(img);
+      item.append(cover, el("div", { className: "title" }, t.title));
+      const sub = t.episodes && t.episodes.length
+        ? t.episodes.slice(0, 2).join(", ") + (t.episodes.length > 2 ? ` +${t.episodes.length - 2} more` : "")
+        : t.year ? String(t.year) : "";
+      if (sub) item.append(el("div", { className: "sub" }, sub));
+      shelf.append(item);
+    }
+    parts.push(shelf);
+  } else {
+    parts.push(el("p", { className: "empty-note" },
+      data.errors.library ? "Couldn't search your library." : "Nothing else in your library."));
+  }
+
+  if (about && about.bio) {
+    parts.push(el("h3", {}, "About"));
+    const bio = el("div", { className: "bio" });
+    about.bio.split("\n\n").forEach((para) => bio.append(el("p", {}, para)));
+    bio.append(el("a", { className: "wiki-link", href: about.url, target: "_blank", rel: "noopener" }, "Full biography on IMDb →"));
+    parts.push(bio);
+  }
+  if (about && about.trivia.length) {
+    parts.push(el("h3", {}, "Trivia"));
+    const list = el("ul", { className: "person-trivia" });
+    const show = (n) => list.replaceChildren(...about.trivia.slice(0, n).map((t) => el("li", {}, t)));
+    show(5);
+    parts.push(list);
+    if (about.trivia.length > 5) {
+      const more = el("button", { className: "more-link" }, `Show all ${about.trivia.length}`);
+      more.onclick = () => { show(about.trivia.length); more.remove(); };
+      parts.push(more);
+    }
+  }
+  if (!about && !data.errors.imdb) parts.push(el("p", { className: "empty-note" }, "IMDb doesn't have more about them."));
+  $("person-body").replaceChildren(...parts);
+}
+
 // ---- Wiring ----------------------------------------------------------------
 
 document.querySelectorAll(".tabs button").forEach((b) => {
@@ -620,6 +752,11 @@ $("tv-view").querySelectorAll("button").forEach((b) => {
     buildDeck();
     renderTrivia();
   };
+});
+
+$("person-close").onclick = () => $("person").close();
+$("person").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) e.currentTarget.close(); // tap outside the sheet closes it
 });
 
 // One-second tick: progress bar and spotlight auto-advance.

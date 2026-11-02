@@ -11,7 +11,11 @@ Trivia for whatever you're watching. Moviebrain checks what's playing on **Plex*
   <img src="docs/screenshots/desktop-wikipedia.jpg" width="770" alt="Desktop view with the Wikipedia tab open">
 </p>
 <p align="center">
+  <img src="docs/screenshots/phone-cast.jpg" width="250" alt="The Cast tab listing actors and their characters">
+  <img src="docs/screenshots/phone-person.jpg" width="250" alt="An actor's page: other titles in your library, then their IMDb biography">
   <img src="docs/screenshots/phone-goofs.jpg" width="250" alt="The Goofs tab, with each mistake labelled by kind">
+</p>
+<p align="center">
   <img src="docs/screenshots/settings-servers.jpg" width="250" alt="Settings: Plex and Jellyfin server cards">
   <img src="docs/screenshots/settings-sources.jpg" width="250" alt="Settings: source switches and goof kinds">
 </p>
@@ -22,6 +26,7 @@ Trivia for whatever you're watching. Moviebrain checks what's playing on **Plex*
 - **Spotlight**: one fact at a time. Tap the card or use ← → to skip. The circular-arrows button turns auto-advance on (a new fact every 20 seconds) or off.
 - **Trivia** and **Goofs**: the full IMDb lists. Spoilers stay blurred until you tap them, or tap the eye button in the header to show them all.
 - **Wikipedia**: production, release, reception and legacy sections. Plot sections are always skipped.
+- **Cast**: who's in it, from your media server. Tap someone to see **where else they are in your library** (movies, shows and the episodes they guest-starred in), plus their IMDb bio and trivia.
 - **TV shows**: trivia, goofs and Wikipedia for the episode on screen, or tap **Series** in the top bar for facts about the whole show (remembered per device).
 - **Ratings & awards** (optional, free OMDb key): IMDb, Rotten Tomatoes and Metacritic scores, awards and box office under the title, plus OMDb facts in Spotlight.
 - **Choose your sources** in Settings: switch each source on or off, pick Wikipedia sections and kinds of goofs, and pick whether TV starts on the episode or the series.

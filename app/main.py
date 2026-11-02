@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import auth, config, media, trivia
+from . import auth, config, media, people, trivia
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -72,6 +72,19 @@ async def get_trivia(
     except Exception as e:  # network trouble resolving the film
         log.exception("Trivia lookup failed")
         raise HTTPException(502, f"Trivia lookup failed: {e}")
+
+
+@app.get("/api/cast")
+async def get_cast(source: str, item: str, show: Optional[str] = None):
+    return {"cast": await people.cast(source, item, show)}
+
+
+@app.get("/api/person")
+async def get_person(source: str, id: str, name: str):
+    try:
+        return await people.person(source, id, name)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @app.get("/api/display")
