@@ -1,14 +1,14 @@
 # Works with Docker Compose, QNAP Container Station, Synology Container Manager
 # and Unraid's Compose Manager plugin. Settings are set up in the web UI.
 services:
-  triviarr:
-    image: ghcr.io/infestacool/triviarr:latest
-    container_name: triviarr
+  moviebrain:
+    image: ghcr.io/infestacool/moviebrain:latest
+    container_name: moviebrain
     restart: unless-stopped
     ports:
       - "8085:8080"
     volumes:
-      - ./config:/config   # e.g. /mnt/user/appdata/triviarr on Unraid, /share/Container/triviarr on QNAP
+      - ./config:/config   # e.g. /mnt/user/appdata/moviebrain on Unraid, /share/Container/moviebrain on QNAP
     environment:
       - PUID=99            # optional: the user and group that should own /config
       - PGID=100

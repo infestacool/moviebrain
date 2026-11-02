@@ -1,5 +1,5 @@
 # Builds the Docker image and publishes it to GitHub Container Registry,
-# so Unraid can pull ghcr.io/<owner>/triviarr:latest.
+# so Unraid can pull ghcr.io/<owner>/moviebrain:latest.
 name: Build image
 
 on:
@@ -30,7 +30,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/triviarr
+          images: ghcr.io/${{ github.repository_owner }}/moviebrain
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
@@ -43,7 +43,7 @@ jobs:
         with:
           context: .
           load: true
-          tags: triviarr:test
+          tags: moviebrain:test
           cache-from: type=gha
 
       - name: Smoke test
@@ -52,7 +52,7 @@ jobs:
           check() {  # check NAME UID GID [extra docker args...]
             name=$1; uid=$2; gid=$3; shift 3
             dir=$(mktemp -d)
-            docker run -d --name "$name" -v "$dir:/config" "$@" triviarr:test
+            docker run -d --name "$name" -v "$dir:/config" "$@" moviebrain:test
             for i in $(seq 1 30); do docker exec "$name" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')" && break; sleep 1; done
             docker exec "$name" python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz')"
             # The folder now belongs to $uid, so the runner's own user needs sudo to look inside.

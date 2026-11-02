@@ -1,4 +1,4 @@
-"""Triviarr web server."""
+"""Moviebrain web server."""
 from __future__ import annotations
 
 import logging
@@ -19,7 +19,7 @@ STATIC = Path(__file__).parent / "static"
 PUBLIC_PATHS = ("/login", "/auth/", "/static/", "/healthz", "/api/auth/status")
 ADMIN_PATHS = ("/settings", "/api/settings")
 
-app = FastAPI(title="Triviarr")
+app = FastAPI(title="Moviebrain")
 app.include_router(auth.router)
 
 
@@ -42,7 +42,7 @@ async def require_sign_in(request: Request, call_next):
 app.add_middleware(
     SessionMiddleware,
     secret_key=config.session_secret(),
-    session_cookie="triviarr",
+    session_cookie="moviebrain",
     max_age=auth.SESSION_DAYS * 86400,
     same_site="lax",
 )

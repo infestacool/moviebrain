@@ -20,7 +20,7 @@ from . import config, media
 log = logging.getLogger(__name__)
 router = APIRouter()
 
-PLEX_PRODUCT = "Triviarr"
+PLEX_PRODUCT = "Moviebrain"
 SESSION_DAYS = 30
 
 
@@ -221,7 +221,7 @@ async def oidc_callback(request: Request, code: str = "", state: str = "", error
     # Empty allow-list: trust the provider (Pocket ID can restrict a client to user groups).
     allowed = config.csv(config.S.allowed_users)
     if allowed and not ident & allowed:
-        return _fail(f"{name} isn't allowed to use Triviarr.")
+        return _fail(f"{name} isn't allowed to use Moviebrain.")
     admins = config.csv(config.S.admin_users)
     _sign_in(request, name, ident, admin=not admins or bool(ident & admins))
     return RedirectResponse("/", status_code=303)

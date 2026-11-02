@@ -56,7 +56,7 @@ async function poll() {
     state.polledAt = Date.now();
     state.serverInfo = data;
   } catch (e) {
-    state.serverInfo = { errors: { app: "Can't reach the Triviarr server" }, configured: {} };
+    state.serverInfo = { errors: { app: "Can't reach the Moviebrain server" }, configured: {} };
   }
   render();
 }
@@ -307,6 +307,13 @@ function isTv() {
   return !!(state.movie && state.movie.episode);
 }
 
+// What to call the title on screen in "nothing found" messages.
+function subject() {
+  return isTv() ? (state.filters.scopes.series ? "show" : "episode") : "movie";
+}
+
+const SERIES_HINT = " Turn on series facts in Settings to see trivia about the whole show.";
+
 // Long Wikipedia paragraphs read badly on a card; keep the first few sentences.
 function trimSentences(text, max = 420) {
   if (text.length <= max) return text;
@@ -436,7 +443,8 @@ function renderSpotlight() {
   const item = state.deck[state.deckPos];
   if (!item) {
     $("spot-source").textContent = "";
-    $("spot-text").textContent = state.trivia ? `No trivia found for this ${isTv() ? "show" : "movie"}.` : "";
+    $("spot-text").textContent = !state.trivia ? ""
+      : `No trivia found for this ${subject()}.` + (subject() === "episode" ? SERIES_HINT : "");
     return;
   }
   $("spot-source").textContent = `${item.source} · ${state.deckPos + 1}/${state.deck.length}`;
@@ -462,8 +470,8 @@ function renderImdbList(kind, label) {
   if (!state.trivia) { list.replaceChildren(); return; }
   if (!items.length) {
     const why = state.trivia.errors[kind] ? "IMDb didn't respond."
-      : imdbItems(kind).length ? "Everything here is switched off in Settings."
-      : `No ${label} for this ${isTv() ? "show" : "movie"}.`;
+      : imdbItems(kind).some((t) => !t.scope || state.filters.scopes[t.scope]) ? "Everything here is switched off in Settings."
+      : `No ${label} for this ${subject()}.` + (subject() === "episode" ? SERIES_HINT : "");
     list.replaceChildren(el("li", {}, why));
     return;
   }
@@ -507,7 +515,9 @@ function renderWiki() {
   const empty = (a) => !a || (!a.intro.length && !a.sections.length);
   if (empty(w) && empty(ep)) {
     const why = state.trivia.errors.wikipedia ? "Wikipedia didn't respond."
-      : state.trivia.wikipedia || state.trivia.episode_wikipedia ? "Everything here is switched off in Settings."
+      : (state.trivia.wikipedia && (!isTv() || state.filters.scopes.series)) ||
+        (state.trivia.episode_wikipedia && state.filters.scopes.episode) ? "Everything here is switched off in Settings."
+      : subject() === "episode" ? "This episode doesn't have its own Wikipedia article." + SERIES_HINT
       : "No Wikipedia article found.";
     box.replaceChildren(el("p", { className: "loading" }, why));
     return;

@@ -1,6 +1,6 @@
-# 🎬 Triviarr
+# 🧠 Moviebrain
 
-Trivia for whatever you're watching. Triviarr checks what's playing on **Plex** or **Jellyfin** and shows trivia, goofs and background about that movie or TV episode from **IMDb**, **Wikipedia** and, optionally, **OMDb**. It runs in Docker on Unraid, QNAP or any Docker host, and the page works on phones, tablets and computers.
+Trivia for whatever you're watching. Moviebrain checks what's playing on **Plex** or **Jellyfin** and shows trivia, goofs and background about that movie or TV episode from **IMDb**, **Wikipedia** and, optionally, **OMDb**. It runs in Docker on Unraid, QNAP or any Docker host, and the page works on phones, tablets and computers.
 
 <p align="center">
   <img src="docs/screenshots/phone-spotlight.jpg" width="250" alt="Spotlight showing one trivia fact for the movie playing, with its poster and ratings">
@@ -22,7 +22,7 @@ Trivia for whatever you're watching. Triviarr checks what's playing on **Plex** 
 - **Spotlight**: one fact at a time. Tap the card or use ← → to skip. The circular-arrows button turns auto-advance on (a new fact every 20 seconds) or off.
 - **Trivia** and **Goofs**: the full IMDb lists. Spoilers stay blurred until you tap them, or tap the eye button in the header to show them all.
 - **Wikipedia**: production, release, reception and legacy sections. Plot sections are always skipped.
-- **TV shows**: facts about the episode on screen come first, then the series. Each item is labelled *This episode* or *Series*.
+- **TV shows**: trivia, goofs and Wikipedia for the episode on screen. Turn on *series facts* in Settings to add facts about the whole show, labelled *Series*.
 - **Ratings & awards** (optional, free OMDb key): IMDb, Rotten Tomatoes and Metacritic scores, awards and box office under the title, plus OMDb facts in Spotlight.
 - **Choose your sources** in Settings: switch each source on or off, pick Wikipedia sections and kinds of goofs, and choose episode and/or series facts for TV.
 - **Several things playing?** Buttons at the top switch between them. Nothing playing? Look up any movie by name.
@@ -30,7 +30,7 @@ Trivia for whatever you're watching. Triviarr checks what's playing on **Plex** 
 
 ## Install
 
-Triviarr is a single container. The image `ghcr.io/infestacool/triviarr:latest` is built for **x86-64** and **64-bit ARM**.
+Moviebrain is a single container. The image `ghcr.io/infestacool/moviebrain:latest` is built for **x86-64** and **64-bit ARM**.
 
 | Setting | Value |
 |---|---|
@@ -44,26 +44,26 @@ Everything else is set up on the **Settings** page after it starts.
 
 1. In the Unraid terminal, download the template:
    ```bash
-   wget -O /boot/config/plugins/dockerMan/templates-user/my-triviarr.xml https://raw.githubusercontent.com/infestacool/triviarr/main/unraid/triviarr.xml
+   wget -O /boot/config/plugins/dockerMan/templates-user/my-moviebrain.xml https://raw.githubusercontent.com/infestacool/moviebrain/main/unraid/moviebrain.xml
    ```
-2. Go to **Docker → Add Container**, choose **triviarr** from the *Template* list, and click **Apply**.
+2. Go to **Docker → Add Container**, choose **moviebrain** from the *Template* list, and click **Apply**.
 3. Open `http://<server-ip>:8085` and click **⚙** to open Settings.
 
-Settings are saved in `/mnt/user/appdata/triviarr`. To update, click **Check for Updates** in the Docker tab.
+Settings are saved in `/mnt/user/appdata/moviebrain`. To update, click **Check for Updates** in the Docker tab.
 
 ### Docker / Docker Compose
 
 ```bash
-docker run -d --name triviarr --restart unless-stopped -p 8085:8080 -v /path/to/triviarr:/config ghcr.io/infestacool/triviarr:latest
+docker run -d --name moviebrain --restart unless-stopped -p 8085:8080 -v /path/to/moviebrain:/config ghcr.io/infestacool/moviebrain:latest
 ```
 
 Or with Compose, using the [`docker-compose.yml`](docker-compose.yml) in this repo:
 
 ```yaml
 services:
-  triviarr:
-    image: ghcr.io/infestacool/triviarr:latest
-    container_name: triviarr
+  moviebrain:
+    image: ghcr.io/infestacool/moviebrain:latest
+    container_name: moviebrain
     restart: unless-stopped
     ports:
       - "8085:8080"
@@ -78,18 +78,18 @@ To update: `docker compose pull && docker compose up -d`.
 
 ### QNAP (Container Station)
 
-1. In **File Station**, create a folder for the settings, e.g. `/share/Container/triviarr`.
-2. Open **Container Station → Applications → Create**, name it `triviarr`, and paste:
+1. In **File Station**, create a folder for the settings, e.g. `/share/Container/moviebrain`.
+2. Open **Container Station → Applications → Create**, name it `moviebrain`, and paste:
    ```yaml
    services:
-     triviarr:
-       image: ghcr.io/infestacool/triviarr:latest
-       container_name: triviarr
+     moviebrain:
+       image: ghcr.io/infestacool/moviebrain:latest
+       container_name: moviebrain
        restart: unless-stopped
        ports:
          - "8085:8080"
        volumes:
-         - /share/Container/triviarr:/config
+         - /share/Container/moviebrain:/config
    ```
 3. Click **Validate**, then **Create**.
 4. Open `http://<nas-ip>:8085` and click **⚙** to open Settings.
@@ -100,12 +100,16 @@ To update, open the application in Container Station and choose **Recreate** wit
 
 Any Docker host works the same way: run the image with port 8080 and a `/config` volume. On Synology, use **Container Manager → Project** and the Compose file above.
 
+### Moving from Triviarr
+
+Moviebrain used to be called Triviarr. To switch an existing container, edit it and change the image (Unraid: *Repository*) from `ghcr.io/infestacool/triviarr:latest` to `ghcr.io/infestacool/moviebrain:latest`. Keep the same `/config` folder and your settings carry over. You'll need to sign in again if sign-in is turned on.
+
 ## Settings
 
 | Section | What it does |
 |---|---|
 | **Media servers** | Plex (URL + token) and/or Jellyfin (URL + API key). At least one is required. **Test connection** checks each one. |
-| **Sources** | Switch IMDb trivia, IMDb goofs, Wikipedia and Ratings & awards on or off. Pick Wikipedia sections and kinds of goofs, and for TV whether to show episode facts, series facts or both. |
+| **Sources** | Switch IMDb trivia, IMDb goofs, Wikipedia and Ratings & awards on or off. Pick Wikipedia sections and kinds of goofs. For TV, episode facts are on and series facts are off by default. |
 | **Display** | Only show what certain people are watching, e.g. so you don't see what the kids are watching in another room. |
 | **Sign-in** | Off by default. See below. |
 | **Advanced** | HTTPS certificate checks, and a public URL for reverse proxies. |
@@ -126,7 +130,7 @@ Sign-in is **off by default**, so anyone on your network can open the page. To r
 - **Sign in with Pocket ID** (or any OpenID Connect provider, such as Authelia, Authentik or Keycloak):
   1. In Pocket ID, go to *Administration → OIDC Clients → Add OIDC Client*.
   2. Set the callback URL to the one shown on the Settings page (`http://<server-ip>:8085/auth/oidc/callback`).
-  3. Paste the issuer URL (e.g. `https://id.example.com`), client ID and client secret into Triviarr.
+  3. Paste the issuer URL (e.g. `https://id.example.com`), client ID and client secret into Moviebrain.
   4. To control who gets in, either restrict the client to user groups in Pocket ID, or list emails, usernames or groups under *Allowed users*.
 
 After you save, you'll be asked to sign in right away.

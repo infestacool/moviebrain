@@ -4,7 +4,8 @@
   --surface-2: rgba(44, 47, 58, 0.9);
   --text: #f1f1f4;
   --muted: #a3a6b4;
-  --accent: #f5c518;
+  --accent: #ff8f2e;
+  --accent-soft: rgba(255, 143, 46, .14);
   --accent-text: #111;
   --danger: #ff7a7a;
   --radius: 14px;
@@ -224,7 +225,7 @@ a.brand { color: var(--text); text-decoration: none; }
 .logo-plex { background: #e5a00d; }
 .logo-jellyfin { background: linear-gradient(135deg, #aa5cc3, #00a4dc); color: #fff; }
 .logo-imdb { background: #f5c518; font-size: 12px; letter-spacing: -.02em; }
-.logo-goofs { background: #ff8a65; font-size: 20px; }
+.logo-goofs { background: #e5484d; color: #fff; font-size: 20px; }
 .logo-wiki { background: #f1f1f4; font-family: Georgia, "Times New Roman", serif; font-size: 20px; }
 .logo-omdb { background: #7ddc8a; font-size: 18px; }
 .logo-tv { background: var(--surface-2); font-size: 18px; }
@@ -271,7 +272,7 @@ a.brand { color: var(--text); text-decoration: none; }
   display: inline-block; padding: 7px 13px; border-radius: 18px; font-size: 14px; cursor: pointer; user-select: none;
   border: 1.5px solid var(--surface-2); color: var(--muted); transition: all .15s;
 }
-.chip input:checked + span { border-color: var(--accent); color: var(--text); background: rgba(245, 197, 24, .12); }
+.chip input:checked + span { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
 .chip input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
 .settings label.inline { display: flex; align-items: center; gap: 10px; margin: 0; }
 .settings input.short { width: 90px !important; display: inline-block !important; margin: 0 !important; }
@@ -296,11 +297,11 @@ button.secondary { background: var(--surface-2); color: var(--text); }
   display: flex; gap: 12px; align-items: flex-start; margin: 0; padding: 12px 14px; cursor: pointer;
   border: 1.5px solid var(--surface-2); border-radius: 12px; color: var(--text);
 }
-.choice:has(input:checked) { border-color: var(--accent); background: rgba(245, 197, 24, .06); }
+.choice:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
 .choice input { accent-color: var(--accent); width: 18px; height: 18px; flex: none; margin-top: 3px; }
 .choice span { display: grid; }
 .choice small { color: var(--muted); font-size: 13px; }
-.warning { background: rgba(245,197,24,.12); color: var(--accent); padding: 10px 12px; border-radius: 8px; font-size: 14px; }
+.warning { background: var(--accent-soft); color: var(--accent); padding: 10px 12px; border-radius: 8px; font-size: 14px; }
 .save-bar {
   position: sticky; bottom: 0; display: flex; justify-content: flex-end; align-items: center; gap: 14px;
   padding: 14px 0 calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--bg) 35%);

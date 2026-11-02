@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 CONFIG_DIR = Path(os.environ.get("CONFIG_DIR", "/config"))
 SETTINGS_FILE = CONFIG_DIR / "settings.json"
-USER_AGENT = "Triviarr/1.0 (self-hosted home media server tool)"
+USER_AGENT = "Moviebrain/1.0 (self-hosted home media server tool)"
 
 # Escape hatch if SSO locks you out: set AUTH_DISABLE=true on the container.
 AUTH_DISABLE = os.environ.get("AUTH_DISABLE", "").lower() in ("1", "true", "yes")
@@ -34,7 +34,7 @@ FIELDS = {
     "omdb_api_key": ("OMDB_API_KEY", ""),       # optional: adds ratings, awards and box office facts
     "include_omdb": ("INCLUDE_OMDB", True),
     "tv_episode_facts": ("TV_EPISODE_FACTS", True),
-    "tv_series_facts": ("TV_SERIES_FACTS", True),
+    "tv_series_facts": ("TV_SERIES_FACTS", False),  # off: show trivia for the episode on screen
     # Comma-separated keys from WIKI_SECTIONS / GOOF_KINDS to leave out; blank shows everything.
     "hidden_wiki_sections": ("HIDDEN_WIKI_SECTIONS", ""),
     "hidden_goof_kinds": ("HIDDEN_GOOF_KINDS", ""),
@@ -91,10 +91,29 @@ def load() -> None:
     if S.auth_mode not in AUTH_MODES:
         S.auth_mode = "none"
     _internal.update(saved.get("_internal", {}))
+    changed = _migrate(saved)
     if "session_secret" not in _internal or "plex_client_id" not in _internal:
         _internal.setdefault("session_secret", secrets.token_urlsafe(32))
-        _internal.setdefault("plex_client_id", "triviarr-" + secrets.token_hex(8))
+        _internal.setdefault("plex_client_id", "moviebrain-" + secrets.token_hex(8))
+        changed = True
+    if changed:
         _save()
+
+
+SCHEMA = 2
+
+
+def _migrate(saved: dict) -> bool:
+    """Bring settings saved by an older version up to date; returns True if anything changed."""
+    version = _internal.get("schema", 1)
+    if version >= SCHEMA:
+        return False
+    if version < 2 and saved:
+        # Series facts were briefly on by default and saved along with everything else;
+        # nobody chose them yet, so switch to the new episode-only default.
+        S.tv_series_facts = False
+    _internal["schema"] = SCHEMA
+    return True
 
 
 def _save() -> None:
