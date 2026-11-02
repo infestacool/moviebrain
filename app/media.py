@@ -222,11 +222,20 @@ async def fetch_image(source: str, item_id: str, kind: str) -> tuple[bytes, str]
         headers = {"Authorization": f'MediaBrowser Token="{config.S.jellyfin_api_key}"'}
     else:
         return None
-    async with httpx.AsyncClient(timeout=10, verify=config.S.verify_ssl, follow_redirects=True) as client:
+    async with httpx.AsyncClient(timeout=10, verify=config.S.verify_ssl) as client:
         r = await client.get(url, headers=headers)
-    if r.status_code != 200:
+        # Plex redirects to the current artwork. Follow that, but never to another host with the token.
+        for _ in range(3):
+            if not r.is_redirect:
+                break
+            target = r.next_request.url if r.next_request else None
+            if not target or target.host != httpx.URL(url).host:
+                return None
+            r = await client.get(target, headers=headers)
+    content_type = r.headers.get("content-type", "")
+    if r.status_code != 200 or not content_type.startswith("image/"):
         return None
-    return r.content, r.headers.get("content-type", "image/jpeg")
+    return r.content, content_type
 
 
 async def test_connection(source: str, url: str, key: str, verify: bool) -> str:

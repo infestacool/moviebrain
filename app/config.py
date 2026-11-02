@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import secrets
 from pathlib import Path
 from types import SimpleNamespace
@@ -76,6 +77,8 @@ def _coerce(name: str, value):
     value = str(value or "").strip()
     if name.endswith("_url") or name == "oidc_issuer":
         value = value.rstrip("/")
+    if name == "wiki_lang" and not re.fullmatch(r"[a-z]{2,3}(-[a-z]+)*", value):
+        value = "en"  # it becomes part of a hostname, so only a language code is allowed
     return value
 
 
@@ -117,8 +120,15 @@ def _migrate(saved: dict) -> bool:
     return True
 
 
+def _env_or_default(name: str):
+    env, default = FIELDS[name]
+    return _coerce(name, os.environ.get(env, default))
+
+
 def _save() -> None:
-    data = {name: getattr(S, name) for name in FIELDS}
+    # Only store what differs from the container's environment variables and defaults,
+    # so changing a variable later still takes effect for settings never changed in the UI.
+    data = {name: getattr(S, name) for name in FIELDS if getattr(S, name) != _env_or_default(name)}
     data["_internal"] = _internal
     try:
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -131,7 +141,9 @@ def _save() -> None:
         raise
 
 
-def update(changes: dict) -> None:
+def update(changes: dict, clear=()) -> None:
+    for name in clear:
+        setattr(S, name, "")
     for name, value in changes.items():
         if name not in FIELDS:
             continue

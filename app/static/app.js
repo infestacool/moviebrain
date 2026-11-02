@@ -179,8 +179,13 @@ function setBackdrop(url) {
   if (!url) { bd.classList.remove("on"); bd.dataset.url = ""; return; }
   if (bd.dataset.url === url) return;
   bd.dataset.url = url;
+  bd.classList.remove("on"); // don't leave the previous title's artwork up if this one has none
   const img = new Image();
-  img.onload = () => { bd.style.backgroundImage = `url("${url}")`; bd.classList.add("on"); };
+  img.onload = () => {
+    if (bd.dataset.url !== url) return; // switched again while loading
+    bd.style.backgroundImage = `url("${url}")`;
+    bd.classList.add("on");
+  };
   img.src = url;
 }
 

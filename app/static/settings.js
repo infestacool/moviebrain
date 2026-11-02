@@ -157,10 +157,14 @@ async function save({ quiet = false, authMode } = {}) {
   saving = true;
   showStatus("Saving…");
   try {
-    await api("/api/settings", { method: "POST", body: json });
+    const result = await api("/api/settings", { method: "POST", body: json });
     lastSaved = json;
     for (const el of form.querySelectorAll("[data-secret]")) {
       if (el.value.trim()) el.dataset.isSet = "1";
+    }
+    // A new server address drops the old key: ask for it again.
+    for (const name of result.cleared || []) {
+      Object.assign(field(name), { placeholder: "Enter it again for the new address" }).dataset.isSet = "";
     }
     const turnedOn = values.auth_mode !== "none" && values.auth_mode !== savedAuthMode;
     savedAuthMode = values.auth_mode;
@@ -183,7 +187,8 @@ const isText = (el) => el.matches("input:not([type=checkbox]):not([type=radio])"
 
 form.addEventListener("input", (e) => {
   refreshState();
-  if (isText(e.target)) scheduleSave(TYPING_DELAY);
+  // Addresses save when you leave the field, so a half-typed one never gets used.
+  if (isText(e.target) && e.target.type !== "url") scheduleSave(TYPING_DELAY);
 });
 form.addEventListener("change", (e) => {
   if (e.target.name === "auth_mode") showAuthPanels();

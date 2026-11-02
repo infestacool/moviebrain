@@ -1,170 +1,86 @@
 # 🧠 Moviebrain
 
-Trivia for whatever you're watching. Moviebrain checks what's playing on **Plex** or **Jellyfin** and shows trivia, goofs and background about that movie or TV episode from **IMDb**, **Wikipedia** and, optionally, **OMDb**. It runs in Docker on Unraid, QNAP or any Docker host, and the page works on phones, tablets and computers.
+Trivia for whatever's playing on **Plex** or **Jellyfin**: IMDb trivia and goofs, Wikipedia background, cast, and optional OMDb ratings. A small self-hosted web app for phones, tablets and desktops. Runs in Docker on Unraid, QNAP, Synology or any Docker host.
 
 <p align="center">
-  <img src="docs/screenshots/phone-spotlight.jpg" width="250" alt="Spotlight showing one trivia fact for the movie playing, with its poster and ratings">
-  <img src="docs/screenshots/phone-tv.jpg" width="250" alt="A TV episode, with facts about this episode listed first">
-  <img src="docs/screenshots/phone-spoilers.jpg" width="250" alt="The trivia list with a spoiler blurred until tapped">
+  <img src="docs/screenshots/phone-spotlight.jpg" width="250" alt="Spotlight: one fact at a time, with poster and ratings">
+  <img src="docs/screenshots/phone-tv.jpg" width="250" alt="A TV episode with the Episode/Series toggle">
+  <img src="docs/screenshots/phone-spoilers.jpg" width="250" alt="Trivia list with a blurred spoiler">
 </p>
 <p align="center">
-  <img src="docs/screenshots/desktop-wikipedia.jpg" width="770" alt="Desktop view with the Wikipedia tab open">
+  <img src="docs/screenshots/phone-cast.jpg" width="250" alt="Cast tab">
+  <img src="docs/screenshots/phone-person.jpg" width="250" alt="An actor's other titles in your library">
+  <img src="docs/screenshots/settings-sources.jpg" width="250" alt="Settings: sources">
 </p>
-<p align="center">
-  <img src="docs/screenshots/phone-cast.jpg" width="250" alt="The Cast tab listing actors and their characters">
-  <img src="docs/screenshots/phone-person.jpg" width="250" alt="An actor's page: other titles in your library, then their IMDb biography">
-  <img src="docs/screenshots/phone-goofs.jpg" width="250" alt="The Goofs tab, with each mistake labelled by kind">
-</p>
-<p align="center">
-  <img src="docs/screenshots/settings-servers.jpg" width="250" alt="Settings: Plex and Jellyfin server cards">
-  <img src="docs/screenshots/settings-sources.jpg" width="250" alt="Settings: source switches and goof kinds">
-</p>
-<p align="center"><sub>Screenshots use demo data: public-domain titles, made-up users.</sub></p>
+<p align="center"><sub>Screenshots: public-domain film and poster, made-up users, placeholder fact text.</sub></p>
 
 ## Features
 
-- **Spotlight**: one fact at a time. Tap the card or use ← → to skip. The circular-arrows button turns auto-advance on (a new fact every 20 seconds) or off.
-- **Trivia** and **Goofs**: the full IMDb lists. Spoilers stay blurred until you tap them, or tap the eye button in the header to show them all.
-- **Wikipedia**: production, release, reception and legacy sections. Plot sections are always skipped.
-- **Cast**: who's in it, from your media server. Tap someone to see **where else they are in your library** (movies, shows and the episodes they guest-starred in), plus their IMDb bio and trivia.
-- **TV shows**: trivia, goofs and Wikipedia for the episode on screen, or tap **Series** in the top bar for facts about the whole show (remembered per device).
-- **Ratings & awards** (optional, free OMDb key): IMDb, Rotten Tomatoes and Metacritic scores, awards and box office under the title, plus OMDb facts in Spotlight.
-- **Choose your sources** in Settings: switch each source on or off, pick Wikipedia sections and kinds of goofs, and pick whether TV starts on the episode or the series.
-- **Several things playing?** Buttons at the top switch between them. Nothing playing? Look up any movie by name.
-- **Optional sign-in** with Plex, Pocket ID, Authentik or any OpenID Connect provider.
+- **Spotlight**: one fact at a time, optional auto-advance.
+- **Trivia, Goofs, Wikipedia**: full lists; spoilers blurred until tapped; plots skipped.
+- **Cast**: tap an actor to see their other titles **in your library**, plus their bio.
+- **TV**: facts for the episode on screen, or toggle to the whole series.
+- **Ratings & awards** (optional OMDb key).
+- **Settings page** that saves as you go; choose sources, sections and goof kinds.
+- **Optional sign-in**: Plex, Pocket ID, Authentik or any OpenID Connect provider.
 
 ## Install
 
-Moviebrain is a single container. The image `ghcr.io/infestacool/moviebrain:latest` is built for **x86-64** and **64-bit ARM**.
+One container: `ghcr.io/infestacool/moviebrain:latest` (x86-64 and 64-bit ARM). Map port **8080** and a **/config** volume, then open the page and click **⚙** to set up your server.
 
-| Setting | Value |
-|---|---|
-| Port | Container port **8080** (map it to any free port, e.g. 8085) |
-| Volume | **/config**, where settings are saved |
-| PUID / PGID | Optional, default `99` / `100`. The user and group that own `/config`. |
-
-Everything else is set up on the **Settings** page after it starts.
-
-### Unraid
-
-1. In the Unraid terminal, download the template:
-   ```bash
-   wget -O /boot/config/plugins/dockerMan/templates-user/my-moviebrain.xml https://raw.githubusercontent.com/infestacool/moviebrain/main/unraid/moviebrain.xml
-   ```
-2. Go to **Docker → Add Container**, choose **moviebrain** from the *Template* list, and click **Apply**.
-3. Open `http://<server-ip>:8085` and click **⚙** to open Settings.
-
-Settings are saved in `/mnt/user/appdata/moviebrain`. To update, click **Check for Updates** in the Docker tab.
-
-### Docker / Docker Compose
-
+**Docker**
 ```bash
 docker run -d --name moviebrain --restart unless-stopped -p 8085:8080 -v /path/to/moviebrain:/config ghcr.io/infestacool/moviebrain:latest
 ```
 
-Or with Compose, using the [`docker-compose.yml`](docker-compose.yml) in this repo:
+**Compose / QNAP Container Station / Synology Container Manager:** use [`docker-compose.yml`](docker-compose.yml). On QNAP, map `/share/Container/moviebrain` to `/config`.
 
-```yaml
-services:
-  moviebrain:
-    image: ghcr.io/infestacool/moviebrain:latest
-    container_name: moviebrain
-    restart: unless-stopped
-    ports:
-      - "8085:8080"
-    volumes:
-      - ./config:/config
-    environment:
-      - PUID=1000   # optional: run `id` on the host to find yours
-      - PGID=1000
+**Unraid**
+```bash
+wget -O /boot/config/plugins/dockerMan/templates-user/my-moviebrain.xml https://raw.githubusercontent.com/infestacool/moviebrain/main/unraid/moviebrain.xml
 ```
+Then **Docker → Add Container → moviebrain → Apply**.
 
-To update: `docker compose pull && docker compose up -d`.
+Use your server's LAN address (e.g. `http://0.0.0.0:32400`), not `localhost`.
 
-### QNAP (Container Station)
+**Keys:** Plex token: Plex Web → any item → ⋯ → *Get Info* → *View XML* → `X-Plex-Token` in the URL. Jellyfin: *Dashboard → API Keys*. OMDb (optional): free at [omdbapi.com](https://www.omdbapi.com/apikey.aspx).
 
-1. In **File Station**, create a folder for the settings, e.g. `/share/Container/moviebrain`.
-2. Open **Container Station → Applications → Create**, name it `moviebrain`, and paste:
-   ```yaml
-   services:
-     moviebrain:
-       image: ghcr.io/infestacool/moviebrain:latest
-       container_name: moviebrain
-       restart: unless-stopped
-       ports:
-         - "8085:8080"
-       volumes:
-         - /share/Container/moviebrain:/config
-   ```
-3. Click **Validate**, then **Create**.
-4. Open `http://<nas-ip>:8085` and click **⚙** to open Settings.
+## Security
 
-To update, open the application in Container Station and choose **Recreate** with *pull the latest image* ticked. This works on x86-64 and 64-bit ARM QNAPs; older 32-bit ARM models aren't supported.
+- **Sign-in is off by default**: anyone who can reach the page can change settings. Turn it on (Settings → Sign-in) before exposing Moviebrain beyond your home network.
+- Changing a server's address clears its saved key, so a key is only ever sent to the address it was entered for.
+- **Allowed users / Admins** take usernames or verified emails, and groups as `group:name`. With no admins listed, the Plex server owner (or else the first person to sign in) becomes admin.
+- Plex sign-in uses Plex's PIN flow: only approve a Plex sign-in request you started yourself.
+- Locked out? Set `AUTH_DISABLE=true`, restart, fix settings, remove it.
 
-### Synology and others
+## Data sources
 
-Any Docker host works the same way: run the image with port 8080 and a `/config` volume. On Synology, use **Container Manager → Project** and the Compose file above.
-
-## Settings
-
-Open **⚙ Settings** from the main page. Changes save automatically as you make them.
-
-| Section | What it does |
-|---|---|
-| **Media servers** | Plex (URL + token) and/or Jellyfin (URL + API key). At least one is required. **Test connection** checks each one. |
-| **Sources** | Switch IMDb trivia, IMDb goofs, Wikipedia and Ratings & awards on or off. Pick Wikipedia sections and kinds of goofs, and whether TV starts on *This episode* (the default) or *Series*. |
-| **Display** | Only show what certain people are watching, e.g. so you don't see what the kids are watching in another room. |
-| **Sign-in** | Off by default. See below. |
-| **Advanced** | HTTPS certificate checks, and a public URL for reverse proxies. |
-
-**Finding your keys**
-
-- **Plex token**: in Plex Web, open any item, then ⋯ → *Get Info* → *View XML*. Copy the `X-Plex-Token=` value from the address bar.
-- **Jellyfin API key**: *Dashboard → API Keys → +*.
-- **OMDb key** (optional): free at [omdbapi.com](https://www.omdbapi.com/apikey.aspx), 1,000 lookups a day. Activate it from the email they send, paste it into the *Ratings & awards* card, and click **Test key**. Each title is looked up at most once a day, so the free limit is plenty.
-
-Server URLs look like `http://0.0.0.0:32400` (Plex) or `http://0.0.0.0:8096` (Jellyfin), using your server's address. Don't use `localhost`: inside the container that means the container itself.
-
-## Sign-in (optional)
-
-Sign-in is **off by default**, so anyone on your network can open the page. To require it, choose an option under **Settings → Sign-in**:
-
-- **Sign in with Plex**: anyone who has access to your Plex server can sign in. The server owner can open Settings. You can also add extra users with *Allowed users* and choose who can change settings with *Admins*.
-- **Sign in with Authentik**:
-  1. In Authentik, go to *Applications → Applications → Create with provider*, choose **OAuth2/OpenID Provider**, client type **Confidential**.
-  2. Add the redirect URI shown on the Settings page (`http://<server-ip>:8085/auth/oidc/callback`).
-  3. Paste the provider's *OpenID Configuration Issuer* (e.g. `https://auth.example.com/application/o/moviebrain/`), client ID and client secret into Moviebrain.
-  4. Control who gets in with the application's bindings in Authentik, or list usernames, emails or groups under *Allowed users*.
-- **Sign in with Pocket ID** (or any other OpenID Connect provider, such as Authelia or Keycloak):
-  1. In Pocket ID, go to *Administration → OIDC Clients → Add OIDC Client*.
-  2. Set the callback URL to the one shown on the Settings page (`http://<server-ip>:8085/auth/oidc/callback`).
-  3. Paste the issuer URL (e.g. `https://id.example.com`), client ID and client secret into Moviebrain.
-  4. To control who gets in, either restrict the client to user groups in Pocket ID, or list emails, usernames or groups under *Allowed users*.
-
-After you save, you'll be asked to sign in right away.
-
-**Locked out?** Set the container variable `AUTH_DISABLE=true`, restart, fix the settings, then remove it. (On Unraid it's under *Show more settings* in the template.)
+- **IMDb**: Moviebrain reads trivia, goofs and biographies from the unofficial API that imdb.com itself uses, presenting itself as IMDb's web client. **This is not authorized by IMDb**, whose terms prohibit automated access without permission, and it may stop working at any time. You're responsible for your use; you can switch IMDb off in Settings.
+- **Wikipedia / Wikidata**: text is [CC BY-SA](https://creativecommons.org/licenses/by-sa/4.0/); each article is linked.
+- **OMDb**: your own key, under [OMDb's terms](https://www.omdbapi.com/legal.htm).
 
 ## Environment variables
 
-All optional. Anything saved on the Settings page takes precedence.
+All optional; anything you change on the Settings page wins.
 
-| Variable | Default | Meaning |
+| Variable | Default | |
 |---|---|---|
-| `PUID`, `PGID` | `99`, `100` | User and group that own `/config` and run the app |
-| `PLEX_URL`, `PLEX_TOKEN` | | Plex server, if you'd rather not use the Settings page |
+| `PUID`, `PGID` | `99`, `100` | Owner of `/config` |
+| `PLEX_URL`, `PLEX_TOKEN` | | Plex server |
 | `JELLYFIN_URL`, `JELLYFIN_API_KEY` | | Jellyfin server |
-| `OMDB_API_KEY` | | OMDb key for ratings & awards |
-| `AUTH_DISABLE` | `false` | `true` skips sign-in, to recover from a lock-out |
-| `CACHE_HOURS` | `24` | How long trivia is kept before it's fetched again |
+| `OMDB_API_KEY` | | Ratings & awards |
+| `INCLUDE_IMDB`, `INCLUDE_GOOFS`, `INCLUDE_WIKIPEDIA`, `INCLUDE_OMDB` | `true` | Sources |
+| `USERS` | | Only show these users' viewing |
+| `WIKI_LANG` | `en` | Wikipedia language code |
+| `AUTH_MODE` | `none` | `none`, `plex`, `oidc` or `authentik` |
+| `ALLOWED_USERS`, `ADMIN_USERS` | | See Security |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_NAME` | | OpenID Connect |
+| `PUBLIC_URL` | | External address, if behind a reverse proxy |
+| `VERIFY_SSL` | `true` | Check HTTPS certificates |
+| `AUTH_DISABLE` | `false` | Recovery from a lock-out |
+| `CACHE_HOURS` | `24` | How long fetched trivia is kept |
 
-## Notes
-
-- Titles are matched to Wikipedia through Wikidata using the IMDb or TMDb ID from your media server, so remakes and films with the same title are matched correctly.
-- IMDb data comes from the feed IMDb's own website uses. IMDb allows only limited personal, non-commercial use of its data, which a home server meets.
-- Every push to `main` builds a new image with GitHub Actions. Each build is started and checked before it's published.
-
-## Run locally for development
+## Development
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
@@ -172,3 +88,9 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ```bash
 CONFIG_DIR=./config .venv/bin/uvicorn app.main:app --reload --port 8085
 ```
+
+Each push to `main` builds the image; the x86-64 build is started and checked before it's published.
+
+## License
+
+[MIT](LICENSE). Not affiliated with IMDb, Plex, Jellyfin, Wikipedia or OMDb. Icon: [Twemoji](https://github.com/twitter/twemoji) (CC BY 4.0). Screenshot poster: *Charade* (1963), public domain via Wikimedia Commons.

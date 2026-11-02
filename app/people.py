@@ -242,7 +242,7 @@ async def imdb_person(name_id: str) -> dict | None:
             headers={"x-imdb-client-name": "imdb-web-next", "content-type": "application/json"},
         )
         r.raise_for_status()
-    n = (r.json().get("data") or {}).get("name") or {}
+    n = trivia.graphql_data(r).get("name") or {}
     date = lambda d: (((d or {}).get("displayableProperty") or {}).get("value") or {}).get("plainText")  # noqa: E731
     info = {
         "imdb_id": name_id,

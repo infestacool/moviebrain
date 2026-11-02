@@ -39,9 +39,26 @@ def _cached(key: str):
     return None
 
 
+CACHE_MAX = 5000  # entries; anyone who can open the page can trigger lookups
+
+
 def _store(key: str, value, ttl: float | None = None):
+    if len(_cache) >= CACHE_MAX:
+        now = time.time()
+        for k in [k for k, (expires, _) in _cache.items() if expires <= now]:
+            del _cache[k]
+        while len(_cache) >= CACHE_MAX:  # still full: drop the oldest entries
+            del _cache[next(iter(_cache))]
     _cache[key] = (time.time() + (ttl if ttl is not None else config.CACHE_HOURS * 3600), value)
     return value
+
+
+def graphql_data(r: httpx.Response) -> dict:
+    """IMDb answers errors (rate limits, schema changes) with HTTP 200; treat them as failures, not "no trivia"."""
+    body = r.json()
+    if body.get("errors") and not body.get("data"):
+        raise httpx.HTTPError(f"IMDb error: {body['errors'][0].get('message', 'unknown')}")
+    return body.get("data") or {}
 
 
 _inflight: dict[str, asyncio.Future] = {}
@@ -121,7 +138,7 @@ async def resolve(imdb_id: str | None, tmdb_id: str | None, title: str | None, y
     if kind not in KINDS and kind != "episode":
         kind = "movie"
     # Key on the most precise ID, so the same title looked up different ways shares a cache entry.
-    key = f"resolve:{kind}:" + (imdb_id or (tmdb_id and f"tmdb{tmdb_id}") or f"{title}|{year}")
+    key = f"resolve:{config.S.wiki_lang}:{kind}:" + (imdb_id or (tmdb_id and f"tmdb{tmdb_id}") or f"{title}|{year}")
     if (hit := _cached(key)) is not None:
         return hit
     if kind == "episode":
@@ -174,14 +191,18 @@ async def _resolve(key: str, imdb_id, tmdb_id, title, year, kind) -> dict:
 
 async def _imdb_suggest(client: httpx.AsyncClient, title: str, year: int | None, kind: str = "movie") -> str | None:
     """Find an IMDb ID by title using IMDb's search-box suggestion feed."""
-    slug = re.sub(r"[^a-z0-9 ]", "", title.lower()).strip() or "x"
+    norm = lambda t: re.sub(r"[^a-z0-9]", "", (t or "").lower())  # noqa: E731
+    slug = re.sub(r"[^a-z0-9 ]", "", title.lower()).strip()
+    if not slug:
+        return None
     try:
         r = await client.get(f"https://v3.sg.media-imdb.com/suggestion/x/{slug}.json")
         r.raise_for_status()
     except httpx.HTTPError as e:
         log.warning("IMDb suggestion lookup failed: %s", e)
         return None
-    matches = [d for d in r.json().get("d", []) if d.get("qid") in KINDS[kind][2]]
+    # Only accept a result with the same title, not just the first one IMDb suggests.
+    matches = [d for d in r.json().get("d", []) if d.get("qid") in KINDS[kind][2] and norm(d.get("l")) == norm(title)]
     for d in matches:
         # A show's year is when it started, which an episode's year won't match.
         if kind == "tv" or not year or abs((d.get("y") or 0) - year) <= 1:
@@ -214,7 +235,7 @@ async def imdb_episode_id(series_id: str, season, number) -> str | None:
                 headers={"x-imdb-client-name": "imdb-web-next", "content-type": "application/json"},
             )
             r.raise_for_status()
-        edges = (((((r.json().get("data") or {}).get("title") or {}).get("episodes") or {})
+        edges = ((((graphql_data(r).get("title") or {}).get("episodes") or {})
                   .get("episodes") or {}).get("edges") or [])
         episodes = {
             str(e["node"]["series"]["episodeNumber"]["episodeNumber"]): e["node"]["id"]
@@ -270,7 +291,7 @@ async def _imdb_items(key: str, imdb_id: str, kind: str) -> list[dict]:
                 headers={"x-imdb-client-name": "imdb-web-next", "content-type": "application/json"},
             )
             r.raise_for_status()
-            listing = ((r.json().get("data") or {}).get("title") or {}).get(kind) or {}
+            listing = (graphql_data(r).get("title") or {}).get(kind) or {}
             for edge in listing.get("edges", []):
                 node = edge["node"]
                 text = (node.get("text") or {}).get("plainText", "").strip()

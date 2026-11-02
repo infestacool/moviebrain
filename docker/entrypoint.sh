@@ -9,8 +9,12 @@ export PUID PGID
 
 if [ "$(id -u)" = "0" ]; then
     mkdir -p /config
-    if ! chown -R "$PUID:$PGID" /config 2>/dev/null; then
-        echo "Warning: couldn't change the owner of /config to $PUID:$PGID; saving settings may fail." >&2
+    # Only re-own the folder when needed, so a mis-mapped volume isn't walked on every start.
+    owner_of() { stat -c %u:%g "$1" 2>/dev/null || echo "$PUID:$PGID"; }
+    if [ "$(owner_of /config)" != "$PUID:$PGID" ] || [ "$(owner_of /config/settings.json)" != "$PUID:$PGID" ]; then
+        if ! chown -R "$PUID:$PGID" /config 2>/dev/null; then
+            echo "Warning: couldn't change the owner of /config to $PUID:$PGID; saving settings may fail." >&2
+        fi
     fi
     # Drop root before starting the app. Python is already in the image, so no extra tools are needed.
     exec python -c 'import os, sys

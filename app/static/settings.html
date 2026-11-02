@@ -166,9 +166,9 @@
 
           <div id="auth-lists" class="auth-panel" hidden>
             <label>Allowed users <input name="allowed_users" placeholder="Optional"></label>
-            <p class="hint">Comma-separated usernames, emails or (for Pocket ID) groups. With Plex, these are allowed as well as people who share your server. With Pocket ID, leave blank to allow everyone the provider lets in.</p>
+            <p class="hint">Comma-separated usernames or verified emails, and groups as <code>group:name</code>. With Plex, people who share your server are always allowed. With Pocket ID or Authentik, leave blank to allow everyone the provider lets in.</p>
             <label>Admins <input name="admin_users" placeholder="Optional"></label>
-            <p class="hint">Who can open this page. Leave blank for the Plex server owner, or everyone with Pocket ID.</p>
+            <p class="hint">Who can open this page (same format). If blank, the Plex server owner, or else the first person to sign in, becomes admin.</p>
           </div>
 
           <div id="auth-confirm" class="auth-confirm" hidden>

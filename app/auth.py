@@ -32,29 +32,64 @@ def base_url(request: Request) -> str:
     return config.S.public_url or str(request.base_url).rstrip("/")
 
 
+def _matches(entries: set[str], ids: set[str], groups: set[str]) -> bool:
+    """Allowed/admin lists hold usernames or emails, and groups written as "group:name"."""
+    return bool(ids & entries) or any(e[6:] in groups for e in entries if e.startswith("group:"))
+
+
+def _allowed(user: dict) -> bool:
+    entries = config.csv(config.S.allowed_users)
+    ids, groups = set(user.get("ids", [])), set(user.get("groups", []))
+    if user.get("via_server"):  # Plex users who share the server
+        return True
+    if user["mode"] == "plex":
+        return _matches(entries, ids, groups)
+    return not entries or _matches(entries, ids, groups)  # OIDC: empty list trusts the provider
+
+
+def _admin(user: dict) -> bool:
+    entries = config.csv(config.S.admin_users)
+    return bool(user.get("owner")) or _matches(entries, set(user.get("ids", [])), set(user.get("groups", [])))
+
+
 def current_user(request: Request) -> dict | None:
+    """The signed-in user, re-checked against the current lists so removing someone takes effect at once."""
     user = request.session.get("user")
     if not user or user.get("mode") != config.auth_mode() or user.get("exp", 0) < time.time():
         return None
-    return user
+    if not _allowed(user):
+        return None
+    return {**user, "admin": _admin(user)}
 
 
 def is_admin(request: Request) -> bool:
     if config.auth_mode() == "none":
         return True
     user = current_user(request)
-    return bool(user and user.get("admin"))
+    return bool(user and user["admin"])
 
 
-def _sign_in(request: Request, name: str, ident: set[str], admin: bool) -> None:
-    request.session.clear()
-    request.session["user"] = {
+def _sign_in(request: Request, name: str, primary: str, ids: set[str], groups: set[str] = frozenset(),
+             owner: bool = False, via_server: bool = False) -> str | None:
+    """Start a session; returns an error message if the user isn't allowed in."""
+    user = {
         "name": name,
         "mode": config.auth_mode(),
-        "admin": admin,
-        "ids": sorted(ident),
+        "ids": sorted(ids),
+        "groups": sorted(groups),
+        "owner": owner,
+        "via_server": via_server,
         "exp": time.time() + SESSION_DAYS * 86400,
     }
+    if not _allowed(user):
+        return f"{name} isn't allowed to use Moviebrain."
+    # Nobody is admin yet (and there's no Plex server owner): the first person to sign in becomes admin.
+    if not config.csv(config.S.admin_users) and not (owner or (user["mode"] == "plex" and config.plex_configured())):
+        config.update({"admin_users": primary})
+        log.info("%s is the first to sign in and is now the admin", name)
+    request.session.clear()
+    request.session["user"] = user
+    return None
 
 
 def _fail(message: str) -> RedirectResponse:
@@ -128,26 +163,23 @@ async def plex_callback(request: Request):
             ident = {v.lower() for v in (account.get("username"), account.get("email")) if v}
             name = account.get("friendlyName") or account.get("username") or account.get("email")
 
-            allowed = config.csv(config.S.allowed_users)
-            owner = False
-            has_access = bool(ident & allowed)
+            owner = via_server = False
             machine_id = await media.plex_machine_id() if config.plex_configured() else None
             if machine_id:
                 r = await client.get("https://plex.tv/api/v2/resources", headers=_plex_headers(token))
                 r.raise_for_status()
                 for res in r.json():
                     if res.get("clientIdentifier") == machine_id:
-                        has_access = True
+                        via_server = True
                         owner = bool(res.get("owned"))
-            if not has_access:
-                raise AuthError(f"{name} doesn't have access to this Plex server.")
     except AuthError as e:
         return _fail(str(e))
     except httpx.HTTPError as e:
         return _fail(f"Couldn't reach Plex: {e}")
 
-    admins = config.csv(config.S.admin_users)
-    _sign_in(request, name, ident, admin=bool(ident & admins) or (owner if machine_id else not admins))
+    primary = (account.get("username") or account.get("email") or "").lower()
+    if error := _sign_in(request, name, primary, ident, owner=owner, via_server=via_server):
+        return _fail(error if not machine_id else f"{name} doesn't have access to this Plex server.")
     return RedirectResponse("/", status_code=303)
 
 
@@ -217,14 +249,13 @@ async def oidc_callback(request: Request, code: str = "", state: str = "", error
     except (httpx.HTTPError, KeyError) as e:
         return _fail(f"Couldn't complete sign-in with {config.oidc_provider_name()}: {e}")
 
-    ident = {str(v).lower() for v in (info.get("email"), info.get("preferred_username"), info.get("sub")) if v}
-    ident |= {str(g).lower() for g in info.get("groups") or []}
-    name = info.get("name") or info.get("preferred_username") or info.get("email") or "User"
+    # Only trust an email address the provider says is verified.
+    email = info.get("email") if info.get("email_verified") is True else None
+    ids = {str(v).lower() for v in (info.get("preferred_username"), email, info.get("sub")) if v}
+    groups = {str(g).lower() for g in info.get("groups") or []}
+    name = info.get("name") or info.get("preferred_username") or email or "User"
 
-    # Empty allow-list: trust the provider (Pocket ID can restrict a client to user groups).
-    allowed = config.csv(config.S.allowed_users)
-    if allowed and not ident & allowed:
-        return _fail(f"{name} isn't allowed to use Moviebrain.")
-    admins = config.csv(config.S.admin_users)
-    _sign_in(request, name, ident, admin=not admins or bool(ident & admins))
+    primary = str(info.get("preferred_username") or email or info.get("sub")).lower()
+    if error := _sign_in(request, name, primary, ids, groups):
+        return _fail(error)
     return RedirectResponse("/", status_code=303)

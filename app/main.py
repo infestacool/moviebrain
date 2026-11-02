@@ -1,12 +1,15 @@
 """Moviebrain web server."""
 from __future__ import annotations
 
+import hashlib
 import logging
+import re
 from pathlib import Path
+from urllib.parse import urlparse
 from typing import Optional
 
 from fastapi import Body, FastAPI, HTTPException, Request, Response
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -26,6 +29,11 @@ app.include_router(auth.router)
 @app.middleware("http")
 async def require_sign_in(request: Request, call_next):
     path = request.url.path
+    # Refuse changes sent from other websites (a browser always sends Origin on cross-site POSTs).
+    if request.method == "POST":
+        origin = request.headers.get("origin")
+        if origin and urlparse(origin).netloc != request.headers.get("host"):
+            return JSONResponse({"detail": "Cross-site request refused"}, status_code=403)
     if config.auth_mode() != "none" and not path.startswith(PUBLIC_PATHS):
         if not auth.current_user(request):
             if path.startswith("/api/"):
@@ -35,7 +43,11 @@ async def require_sign_in(request: Request, call_next):
             if path.startswith("/api/"):
                 return JSONResponse({"detail": "Only admins can change settings"}, status_code=403)
             return RedirectResponse("/", status_code=303)
-    return await call_next(request)
+    response = await call_next(request)
+    if path.startswith("/static/") or path in ("/", "/settings", "/login"):
+        # Revalidate on every load (cheap, thanks to ETags) so an updated container's pages take effect at once.
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 # Added after the auth middleware so it wraps it and request.session is available there.
@@ -45,6 +57,7 @@ app.add_middleware(
     session_cookie="moviebrain",
     max_age=auth.SESSION_DAYS * 86400,
     same_site="lax",
+    https_only=config.S.public_url.startswith("https://"),
 )
 
 
@@ -98,7 +111,8 @@ async def image(source: str, item_id: str, kind: str):
     if not result:
         raise HTTPException(404)
     content, content_type = result
-    return Response(content, media_type=content_type, headers={"Cache-Control": "private, max-age=86400"})
+    return Response(content, media_type=content_type,
+                    headers={"Cache-Control": "private, max-age=86400", "X-Content-Type-Options": "nosniff"})
 
 
 # --- Settings ---------------------------------------------------------------
@@ -116,6 +130,10 @@ async def get_settings(request: Request):
     }
 
 
+# A saved key is only ever sent to the address it was saved with.
+KEY_FOR_URL = {"plex_url": "plex_token", "jellyfin_url": "jellyfin_api_key", "oidc_issuer": "oidc_client_secret"}
+
+
 def _merged(changes: dict, name: str):
     """Value a field will have after saving (blank secrets keep the stored value)."""
     value = changes.get(name)
@@ -126,7 +144,16 @@ def _merged(changes: dict, name: str):
 
 @app.post("/api/settings")
 async def save_settings(changes: dict = Body(...)):
-    get = lambda name: _merged(changes, name)  # noqa: E731
+    # Changing a server's address drops its saved key unless a new one is given,
+    # so the key can't be redirected to another host.
+    cleared = []
+    for url_field, key_field in KEY_FOR_URL.items():
+        new_url = str(_merged(changes, url_field) or "").rstrip("/")
+        if new_url != getattr(config.S, url_field) and not str(changes.get(key_field) or "").strip():
+            cleared.append(key_field)
+    get = lambda name: "" if name in cleared else _merged(changes, name)  # noqa: E731
+    if not re.fullmatch(r"[a-z]{2,3}(-[a-z]+)*", str(get("wiki_lang") or "en")):
+        raise HTTPException(400, "Wikipedia language should be a code like en, de or pt-br.")
     has_plex = bool(get("plex_url") and get("plex_token"))
     has_jellyfin = bool(get("jellyfin_url") and get("jellyfin_api_key"))
     if not (has_plex or has_jellyfin):
@@ -142,8 +169,8 @@ async def save_settings(changes: dict = Body(...)):
     if mode in config.OIDC_MODES and not (get("oidc_issuer") and get("oidc_client_id") and get("oidc_client_secret")):
         raise HTTPException(400, "OpenID Connect sign-in needs the issuer URL, client ID and client secret.")
 
-    config.update(changes)
-    return {"ok": True, "settings": config.public_view()}
+    config.update(changes, clear=cleared)
+    return {"ok": True, "settings": config.public_view(), "cleared": cleared}
 
 
 @app.post("/api/settings/test/{source}")
@@ -175,6 +202,23 @@ async def test_server(source: str, body: dict = Body(...)):
 
 # --- Pages ------------------------------------------------------------------
 
+def _static_version() -> str:
+    digest = hashlib.sha256()
+    for f in sorted(STATIC.glob("*.[cj]s*")):
+        digest.update(f.read_bytes())
+    return digest.hexdigest()[:10]
+
+
+STATIC_VERSION = _static_version()
+
+
+def _page(name: str) -> HTMLResponse:
+    """Serve a page with versioned script/style links, so browsers fetch new ones after an update."""
+    html = (STATIC / name).read_text()
+    html = re.sub(r'(/static/[\w.-]+\.(?:js|css))"', rf'\1?v={STATIC_VERSION}"', html)
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+
+
 @app.get("/healthz")
 async def health():
     return {"ok": True}
@@ -182,19 +226,19 @@ async def health():
 
 @app.get("/")
 async def index():
-    return FileResponse(STATIC / "index.html")
+    return _page("index.html")
 
 
 @app.get("/settings")
 async def settings_page():
-    return FileResponse(STATIC / "settings.html")
+    return _page("settings.html")
 
 
 @app.get("/login")
 async def login_page(request: Request):
     if config.auth_mode() == "none" or auth.current_user(request):
         return RedirectResponse("/", status_code=303)
-    return FileResponse(STATIC / "login.html")
+    return _page("login.html")
 
 
 app.mount("/static", StaticFiles(directory=STATIC), name="static")
