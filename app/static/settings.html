@@ -148,6 +148,7 @@
             <label class="choice"><input type="radio" name="auth_mode" value="none"><span><b>No sign-in</b><small>Anyone on your network can view the page.</small></span></label>
             <label class="choice"><input type="radio" name="auth_mode" value="plex"><span><b>Sign in with Plex</b><small>Anyone with access to your Plex server.</small></span></label>
             <label class="choice"><input type="radio" name="auth_mode" value="oidc"><span><b>Sign in with Pocket ID</b><small>Or another OpenID Connect provider.</small></span></label>
+            <label class="choice"><input type="radio" name="auth_mode" value="authentik"><span><b>Sign in with Authentik</b><small>Your Authentik users and groups.</small></span></label>
           </div>
 
           <div id="auth-plex" class="auth-panel" hidden>
@@ -155,11 +156,11 @@
           </div>
 
           <div id="auth-oidc" class="auth-panel" hidden>
-            <label>Provider name <input name="oidc_name" placeholder="Pocket ID"></label>
+            <label id="oidc-name-field">Provider name <input name="oidc_name" placeholder="Pocket ID"></label>
             <label>Issuer URL <input name="oidc_issuer" type="url" placeholder="https://id.example.com"></label>
             <label>Client ID <input name="oidc_client_id"></label>
             <label>Client secret <input name="oidc_client_secret" type="password" data-secret></label>
-            <p class="hint">In Pocket ID: Administration → OIDC Clients → Add. Use this callback URL (tap to copy):</p>
+            <p class="hint" id="oidc-hint">In Pocket ID: Administration → OIDC Clients → Add. Use this callback URL (tap to copy):</p>
             <code id="oidc-callback" class="copy"></code>
           </div>
 

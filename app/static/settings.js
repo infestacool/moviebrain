@@ -45,11 +45,17 @@ function chosenAuthMode() {
 function showAuthPanels() {
   const mode = chosenAuthMode();
   $("auth-plex").hidden = mode !== "plex";
-  $("auth-oidc").hidden = mode !== "oidc";
+  const authentik = mode === "authentik";
+  $("auth-oidc").hidden = !(mode === "oidc" || authentik);
+  $("oidc-name-field").hidden = authentik;
+  field("oidc_issuer").placeholder = authentik ? "https://auth.example.com/application/o/moviebrain/" : "https://id.example.com";
+  $("oidc-hint").textContent = authentik
+    ? "In Authentik: Applications → Create with provider → OAuth2/OpenID, confidential client. Copy its OpenID Configuration Issuer here. Use this redirect URI (tap to copy):"
+    : "In Pocket ID: Administration → OIDC Clients → Add. Use this callback URL (tap to copy):";
   $("auth-lists").hidden = mode === "none";
   // Switching sign-in on needs a deliberate click; switching it off just saves.
   $("auth-confirm").hidden = mode === "none" || mode === savedAuthMode;
-  $("auth-confirm-btn").textContent = mode === "plex" ? "Turn on Plex sign-in" : `Turn on ${field("oidc_name").value || "Pocket ID"} sign-in`;
+  $("auth-confirm-btn").textContent = mode === "plex" ? "Turn on Plex sign-in" : `Turn on ${authentik ? "Authentik" : field("oidc_name").value || "Pocket ID"} sign-in`;
 }
 
 // Wikipedia sections and goof kinds are chips; the server stores the ones switched off.

@@ -22,9 +22,9 @@
     fetch("/api/auth/status").then((r) => r.json()).then((s) => {
       if (s.mode === "none" || s.user) { location.href = "/"; return; }
       const btn = document.getElementById("signin");
-      btn.href = "/auth/" + s.mode + "/start";
+      btn.href = "/auth/" + (s.mode === "plex" ? "plex" : "oidc") + "/start";
       btn.textContent = s.mode === "plex" ? "Sign in with Plex" : "Sign in with " + s.oidc_name;
-      btn.classList.add(s.mode);
+      btn.classList.add(s.mode === "plex" ? "plex" : "oidc");
     });
   </script>
 </body>

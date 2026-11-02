@@ -139,8 +139,8 @@ async def save_settings(changes: dict = Body(...)):
     mode = get("auth_mode")
     if mode == "plex" and not (has_plex or get("allowed_users")):
         raise HTTPException(400, "Plex sign-in needs a Plex server (to check who has access) or a list of allowed users.")
-    if mode == "oidc" and not (get("oidc_issuer") and get("oidc_client_id") and get("oidc_client_secret")):
-        raise HTTPException(400, "Pocket ID / OIDC sign-in needs the issuer URL, client ID and client secret.")
+    if mode in config.OIDC_MODES and not (get("oidc_issuer") and get("oidc_client_id") and get("oidc_client_secret")):
+        raise HTTPException(400, "OpenID Connect sign-in needs the issuer URL, client ID and client secret.")
 
     config.update(changes)
     return {"ok": True, "settings": config.public_view()}

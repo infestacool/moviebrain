@@ -69,7 +69,7 @@ async def status(request: Request):
         "mode": config.auth_mode(),
         "user": user and user["name"],
         "admin": is_admin(request),
-        "oidc_name": config.S.oidc_name or "SSO",
+        "oidc_name": config.oidc_provider_name(),
     }
 
 
@@ -162,12 +162,12 @@ async def _discovery() -> dict:
 
 @router.get("/auth/oidc/start")
 async def oidc_start(request: Request):
-    if config.auth_mode() != "oidc":
+    if config.auth_mode() not in config.OIDC_MODES:
         return RedirectResponse("/", status_code=303)
     try:
         meta = await _discovery()
     except httpx.HTTPError as e:
-        return _fail(f"Couldn't reach {config.S.oidc_name}: {e}")
+        return _fail(f"Couldn't reach {config.oidc_provider_name()}: {e}")
     verifier = secrets.token_urlsafe(48)
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     state = secrets.token_urlsafe(24)
@@ -176,7 +176,8 @@ async def oidc_start(request: Request):
         "response_type": "code",
         "client_id": config.S.oidc_client_id,
         "redirect_uri": f"{base_url(request)}/auth/oidc/callback",
-        "scope": "openid profile email groups",
+        # Authentik puts groups in "profile" and rejects scopes it doesn't know; Pocket ID needs "groups".
+        "scope": "openid profile email" if config.auth_mode() == "authentik" else "openid profile email groups",
         "state": state,
         "code_challenge": challenge,
         "code_challenge_method": "S256",
@@ -187,8 +188,10 @@ async def oidc_start(request: Request):
 @router.get("/auth/oidc/callback")
 async def oidc_callback(request: Request, code: str = "", state: str = "", error: str = ""):
     pending = request.session.pop("oidc", None)
+    if config.auth_mode() not in config.OIDC_MODES:
+        return RedirectResponse("/", status_code=303)
     if error:
-        return _fail(f"{config.S.oidc_name} said: {error}")
+        return _fail(f"{config.oidc_provider_name()} said: {error}")
     if not pending or not code or not secrets.compare_digest(state, pending["state"]):
         return _fail("Sign-in expired, please try again.")
     try:
@@ -212,7 +215,7 @@ async def oidc_callback(request: Request, code: str = "", state: str = "", error
     except AuthError as e:
         return _fail(str(e))
     except (httpx.HTTPError, KeyError) as e:
-        return _fail(f"Couldn't complete sign-in with {config.S.oidc_name}: {e}")
+        return _fail(f"Couldn't complete sign-in with {config.oidc_provider_name()}: {e}")
 
     ident = {str(v).lower() for v in (info.get("email"), info.get("preferred_username"), info.get("sub")) if v}
     ident |= {str(g).lower() for g in info.get("groups") or []}

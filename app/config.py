@@ -40,7 +40,7 @@ FIELDS = {
     "hidden_goof_kinds": ("HIDDEN_GOOF_KINDS", ""),
     "wiki_lang": ("WIKI_LANG", "en"),
     "verify_ssl": ("VERIFY_SSL", True),
-    "auth_mode": ("AUTH_MODE", "none"),         # none | plex | oidc
+    "auth_mode": ("AUTH_MODE", "none"),         # none | plex | oidc | authentik
     "allowed_users": ("ALLOWED_USERS", ""),     # usernames/emails/groups allowed to sign in
     "admin_users": ("ADMIN_USERS", ""),         # who may change settings when SSO is on
     "oidc_issuer": ("OIDC_ISSUER", ""),         # e.g. https://id.example.com (Pocket ID)
@@ -61,7 +61,8 @@ GOOF_KINDS = [
     ("notgoofs", "Not really goofs"), ("other", "Other"),
 ]
 SECRET_FIELDS = {"plex_token", "jellyfin_api_key", "oidc_client_secret", "omdb_api_key"}
-AUTH_MODES = ("none", "plex", "oidc")
+AUTH_MODES = ("none", "plex", "oidc", "authentik")
+OIDC_MODES = ("oidc", "authentik")  # both use the OpenID Connect flow
 CACHE_HOURS = float(os.environ.get("CACHE_HOURS", "24"))
 
 S = SimpleNamespace()  # live settings; read as config.S.plex_url etc.
@@ -156,6 +157,10 @@ def public_view() -> dict:
 
 def auth_mode() -> str:
     return "none" if AUTH_DISABLE else S.auth_mode
+
+
+def oidc_provider_name() -> str:
+    return "Authentik" if S.auth_mode == "authentik" else (S.oidc_name or "SSO")
 
 
 def session_secret() -> str:

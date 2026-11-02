@@ -31,7 +31,7 @@ Trivia for whatever you're watching. Moviebrain checks what's playing on **Plex*
 - **Ratings & awards** (optional, free OMDb key): IMDb, Rotten Tomatoes and Metacritic scores, awards and box office under the title, plus OMDb facts in Spotlight.
 - **Choose your sources** in Settings: switch each source on or off, pick Wikipedia sections and kinds of goofs, and pick whether TV starts on the episode or the series.
 - **Several things playing?** Buttons at the top switch between them. Nothing playing? Look up any movie by name.
-- **Optional sign-in** with Plex or Pocket ID (or any OpenID Connect provider).
+- **Optional sign-in** with Plex, Pocket ID, Authentik or any OpenID Connect provider.
 
 ## Install
 
@@ -130,7 +130,12 @@ Server URLs look like `http://0.0.0.0:32400` (Plex) or `http://0.0.0.0:8096` (Je
 Sign-in is **off by default**, so anyone on your network can open the page. To require it, choose an option under **Settings → Sign-in**:
 
 - **Sign in with Plex**: anyone who has access to your Plex server can sign in. The server owner can open Settings. You can also add extra users with *Allowed users* and choose who can change settings with *Admins*.
-- **Sign in with Pocket ID** (or any OpenID Connect provider, such as Authelia, Authentik or Keycloak):
+- **Sign in with Authentik**:
+  1. In Authentik, go to *Applications → Applications → Create with provider*, choose **OAuth2/OpenID Provider**, client type **Confidential**.
+  2. Add the redirect URI shown on the Settings page (`http://<server-ip>:8085/auth/oidc/callback`).
+  3. Paste the provider's *OpenID Configuration Issuer* (e.g. `https://auth.example.com/application/o/moviebrain/`), client ID and client secret into Moviebrain.
+  4. Control who gets in with the application's bindings in Authentik, or list usernames, emails or groups under *Allowed users*.
+- **Sign in with Pocket ID** (or any other OpenID Connect provider, such as Authelia or Keycloak):
   1. In Pocket ID, go to *Administration → OIDC Clients → Add OIDC Client*.
   2. Set the callback URL to the one shown on the Settings page (`http://<server-ip>:8085/auth/oidc/callback`).
   3. Paste the issuer URL (e.g. `https://id.example.com`), client ID and client secret into Moviebrain.
