@@ -89,6 +89,12 @@ h1 { margin: 0 0 4px; font-size: clamp(1.5rem, 4vw, 2.4rem); line-height: 1.15; 
 .small { font-size: 13px; }
 
 .playback { margin-top: 12px; }
+.glance { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; padding: 0; }
+.glance li {
+  font-size: 13px; padding: 4px 10px; border-radius: 12px; background: var(--surface-2); color: var(--text);
+  white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+}
+.glance li b { color: var(--accent); font-weight: 700; }
 .progress { height: 5px; background: var(--surface-2); border-radius: 3px; margin: 2px 0 4px; overflow: hidden; }
 #progress-bar { height: 100%; width: 0; background: var(--accent); transition: width 1s linear; }
 

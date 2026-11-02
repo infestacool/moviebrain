@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
 import time
 
@@ -18,6 +19,7 @@ log = logging.getLogger(__name__)
 
 WIKIDATA_API = "https://www.wikidata.org/w/api.php"
 IMDB_GRAPHQL = "https://caching.graphql.imdb.com/"
+OMDB_API = os.environ.get("OMDB_URL", "https://www.omdbapi.com/")  # overridable for testing
 IMDB_ID = re.compile(r"^tt\d{5,10}$")
 
 # Wikipedia sections that are not trivia (plot recaps, cast lists, citations).
@@ -290,6 +292,110 @@ async def _imdb_items(key: str, imdb_id: str, kind: str) -> list[dict]:
     return _store(key, items)
 
 
+# --- OMDb (optional, needs a free API key) ---------------------------------
+
+class OmdbError(Exception):
+    pass
+
+
+RATING_NAMES = {"Internet Movie Database": "IMDb", "Rotten Tomatoes": "Rotten Tomatoes", "Metacritic": "Metacritic"}
+
+
+def _na(value):
+    return None if not value or value == "N/A" else value
+
+
+async def _omdb_get(client: httpx.AsyncClient, imdb_id: str, key: str) -> dict | None:
+    r = await client.get(OMDB_API, params={"i": imdb_id, "apikey": key})
+    if r.status_code == 401:
+        raise OmdbError(r.json().get("Error", "Invalid API key"))
+    r.raise_for_status()
+    data = r.json()
+    if data.get("Response") == "False":
+        error = data.get("Error") or "Unknown error"
+        if "not found" in error.lower() or "incorrect imdb" in error.lower():
+            return None
+        raise OmdbError(error)
+    return data
+
+
+async def test_omdb_key(key: str) -> str:
+    async with _client() as client:
+        data = await _omdb_get(client, "tt0133093", key)
+    return (data or {}).get("Title", "a title")
+
+
+async def omdb(imdb_id: str) -> dict | None:
+    """Ratings, awards, box office and credits from OMDb, plus ready-to-show facts."""
+    if not config.S.omdb_api_key or not IMDB_ID.match(imdb_id or ""):
+        return None
+    key = f"omdb:{imdb_id}"
+    if (hit := _cached(key)) is not None:
+        return hit or None
+    return await _once(key, lambda: _omdb(key, imdb_id))
+
+
+async def _omdb(key: str, imdb_id: str) -> dict | None:
+    async with _client() as client:
+        data = await _omdb_get(client, imdb_id, config.S.omdb_api_key)
+    if not data:
+        _store(key, {})
+        return None
+    return _store(key, omdb_summary(data))
+
+
+def omdb_summary(d: dict) -> dict:
+    is_episode = d.get("Type") == "episode"
+    ratings = []
+    for r in d.get("Ratings") or []:
+        name = RATING_NAMES.get(r.get("Source"))
+        if name and _na(r.get("Value")):
+            ratings.append({"source": name, "value": r["Value"]})
+    votes = _na(d.get("imdbVotes"))
+    awards = _na(d.get("Awards"))
+    box_office = _na(d.get("BoxOffice"))
+
+    facts = []
+    if ratings:
+        parts = []
+        for r in ratings:
+            part = f"{r['value']} on {r['source']}"
+            if r["source"] == "IMDb" and votes:
+                part += f" from {votes} votes"
+            parts.append(part)
+        joined = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+        facts.append(f"{'This episode is' if is_episode else 'It is'} rated {joined}.")
+    if awards:
+        facts.append(f"Awards: {awards.rstrip('.')}.")
+    if box_office:
+        facts.append(f"It took {box_office} at the US box office.")
+    when = _na(d.get("Released"))
+    rated = _na(d.get("Rated"))
+    details = [f"Rated {rated}" if rated and rated not in ("Not Rated", "Unrated") else None, _na(d.get("Runtime"))]
+    details = [x for x in details if x]
+    if when:
+        verb = "First aired" if d.get("Type") in ("episode", "series") else "Released"
+        facts.append(" · ".join([f"{verb} {when}", *details]) + ".")
+    if _na(d.get("totalSeasons")):
+        n = d["totalSeasons"]
+        facts.append(f"The series has {n} season{'s' if n != '1' else ''}.")
+    credits = [f"Directed by {d['Director']}" if _na(d.get("Director")) else None,
+               f"{'created' if d.get('Type') == 'series' else 'written'} by {d['Writer']}" if _na(d.get("Writer")) else None]
+    credits = [c for c in credits if c]
+    if credits:
+        text = "; ".join(credits)
+        facts.append(text[0].upper() + text[1:] + ".")
+
+    return {
+        "type": d.get("Type"),
+        "ratings": ratings,
+        "imdb_votes": votes,
+        "awards": awards,
+        "box_office": box_office,
+        "facts": facts,
+    }
+
+
 # --- Wikipedia --------------------------------------------------------------
 
 HEADING = re.compile(r"^(={2,6})\s*(.+?)\s*\1\s*$")
@@ -354,7 +460,7 @@ async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None
     ids = await resolve(imdb_id, tmdb_id, title, year, "tv" if is_tv else "movie")
     out: dict = {
         "imdb_id": ids["imdb_id"], "imdb": None, "goofs": None, "wikipedia": None,
-        "episode_wikipedia": None, "errors": {},
+        "episode_wikipedia": None, "omdb": None, "errors": {},
     }
 
     episode_imdb = None
@@ -376,6 +482,11 @@ async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None
             tasks.append((name, "episode", imdb_items(episode_imdb, imdb_kind)))
         if ids["imdb_id"]:
             tasks.append((name, "series" if is_tv else None, imdb_items(ids["imdb_id"], imdb_kind)))
+    if config.S.omdb_api_key:
+        if episode_imdb:
+            tasks.append(("omdb", "episode", omdb(episode_imdb)))
+        if ids["imdb_id"]:
+            tasks.append(("omdb", "series" if is_tv else None, omdb(ids["imdb_id"])))
     if ids["wiki_title"] and config.S.include_wikipedia:
         tasks.append(("wikipedia", None, wikipedia(ids["wiki_title"])))
     if episode_imdb and config.S.include_wikipedia:
@@ -389,6 +500,9 @@ async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None
         elif name in ("imdb", "goofs"):
             items = [{**item, "scope": scope} for item in res] if scope else res
             out[name] = (out[name] or []) + items
+        elif name == "omdb":
+            if res:
+                out["omdb"] = (out.get("omdb") or []) + [{**res, "scope": scope}]
         else:
             out[name] = res
     return out

@@ -59,14 +59,18 @@ form.addEventListener("change", (e) => { if (e.target.name === "auth_mode") show
 document.querySelectorAll("[data-test]").forEach((btn) => {
   btn.onclick = async () => {
     const source = btn.dataset.test;
-    const keyName = source === "plex" ? "plex_token" : "jellyfin_api_key";
+    const keyName = { plex: "plex_token", jellyfin: "jellyfin_api_key", omdb: "omdb_api_key" }[source];
     setResult("test-" + source, true, "Testing…");
     try {
       const r = await api("/api/settings/test/" + source, {
         method: "POST",
-        body: JSON.stringify({ url: field(source + "_url").value.trim(), key: field(keyName).value.trim(), verify_ssl: field("verify_ssl").checked }),
+        body: JSON.stringify({
+          url: source === "omdb" ? "" : field(source + "_url").value.trim(),
+          key: field(keyName).value.trim(),
+          verify_ssl: field("verify_ssl").checked,
+        }),
       });
-      setResult("test-" + source, true, "✓ Connected to " + r.server);
+      setResult("test-" + source, true, (source === "omdb" ? "✓ " : "✓ Connected to ") + r.server);
     } catch (e) {
       setResult("test-" + source, false, "✗ " + e.message);
     }

@@ -4,6 +4,7 @@ A small web app for your Unraid server. It shows what movie or TV show is playin
 
 - **Spotlight**: one fact at a time. Tap the card or use ← → to skip. The circular-arrows button turns auto-advance on (a new fact every 20 seconds) or off.
 - **Trivia**: the full list of IMDb trivia. Spoilers stay blurred until you tap them, or tap the eye button in the header to show them all.
+- **Ratings & awards** (optional): add a free OMDb key in Settings to get a row of quick stats under the title (IMDb, Rotten Tomatoes and Metacritic scores, awards, box office; for TV, the episode's own rating too) plus OMDb fact cards in Spotlight.
 - **Sources** (the sliders button in the header): choose which sources, Wikipedia sections, kinds of goofs and, for TV, episode or series facts to show. Saved per device, so everyone can set up their own phone.
 - **Goofs**: IMDb's list of filming mistakes, continuity errors and factual slips, with spoilers blurred the same way. You can turn goofs off in Settings.
 - **Wikipedia**: production, release, reception and legacy sections from the film's article.
@@ -34,7 +35,9 @@ Everything is set up on the **Settings** page. You need **at least one** of Plex
 | Plex | `http://0.0.0.0:32400` | **Plex token**: in Plex Web, open any item, then ⋯ → *Get Info* → *View XML*. Copy the `X-Plex-Token=` value from the address bar. |
 | Jellyfin | `http://0.0.0.0:8096` | **API key**: *Dashboard → API Keys → +* |
 
-Use **Test connection** to check each one before saving. *Only show movies played by* limits the page to certain users, for example so you don't see what the kids are watching in another room.
+Use **Test connection** to check each one before saving.
+
+**OMDb (optional):** get a free key at [omdbapi.com](https://www.omdbapi.com/apikey.aspx) (1,000 lookups a day, activated from the email they send), paste it under *Display → OMDb API key*, and click **Test key**. Each title is looked up once a day at most, so the free limit is plenty. *Only show movies played by* limits the page to certain users, for example so you don't see what the kids are watching in another room.
 
 ## Sign-in (optional)
 

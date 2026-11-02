@@ -128,6 +128,15 @@ async def save_settings(changes: dict = Body(...)):
 
 @app.post("/api/settings/test/{source}")
 async def test_server(source: str, body: dict = Body(...)):
+    if source == "omdb":
+        key = (body.get("key") or config.S.omdb_api_key).strip()
+        if not key:
+            raise HTTPException(400, "Enter a key first.")
+        try:
+            title = await trivia.test_omdb_key(key)
+        except Exception as e:
+            raise HTTPException(400, f"OMDb said: {e}")
+        return {"ok": True, "server": f"Key works (looked up {title})"}
     if source not in ("plex", "jellyfin"):
         raise HTTPException(404)
     key_field = "plex_token" if source == "plex" else "jellyfin_api_key"

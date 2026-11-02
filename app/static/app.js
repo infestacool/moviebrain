@@ -224,7 +224,7 @@ async function loadTrivia(movie, key) {
 
 // ---- Sources and sections (chosen per device) -------------------------------
 
-const SOURCES = [["imdb", "IMDb trivia"], ["goofs", "IMDb goofs"], ["wiki", "Wikipedia"]];
+const SOURCES = [["imdb", "IMDb trivia"], ["goofs", "IMDb goofs"], ["wiki", "Wikipedia"], ["omdb", "Ratings & awards"]];
 const SCOPES = [["episode", "This episode"], ["series", "The series"]];
 // Wikipedia headings vary by article, so sections are grouped by keywords in their top-level heading.
 const WIKI_GROUPS = [
@@ -329,19 +329,34 @@ function imdbCards(kind, label, scope) {
     });
 }
 
+// OMDb summaries (only when the server has an OMDb key), for a scope like shownItems().
+function omdbFor(scope) {
+  const f = state.filters;
+  if (!f.sources.omdb || (scope && !f.scopes[scope])) return null;
+  // Movies have no scope (the server sends null).
+  return ((state.trivia && state.trivia.omdb) || []).find((o) => (o.scope || undefined) === scope) || null;
+}
+
+function omdbCards(scope) {
+  const o = omdbFor(scope);
+  const where = scope ? SCOPE_LABELS[scope] + " · " : "";
+  return o ? o.facts.map((text) => ({ source: where + "OMDb", text })) : [];
+}
+
 function wikiCards(which, prefix) {
   return wikiParagraphs(which).map((p) => ({ source: `${prefix}Wikipedia · ${p.section}`, text: trimSentences(p.text) }));
 }
 
-// Two trivia facts, then a goof, then Wikipedia, so every source shows up.
-function interleave(trivia, goofs, wiki) {
-  [trivia, goofs, wiki].forEach(shuffle);
+// Two trivia facts, then a goof, then Wikipedia, then an OMDb fact, so every source shows up.
+function interleave(trivia, goofs, wiki, extra = []) {
+  [trivia, goofs, wiki, extra].forEach(shuffle);
   const out = [];
-  while (trivia.length || goofs.length || wiki.length) {
+  while (trivia.length || goofs.length || wiki.length || extra.length) {
     if (trivia.length) out.push(trivia.shift());
     if (trivia.length) out.push(trivia.shift());
     if (goofs.length) out.push(goofs.shift());
     if (wiki.length) out.push(wiki.shift());
+    if (extra.length) out.push(extra.shift());
   }
   return out;
 }
@@ -351,11 +366,12 @@ function buildDeck() {
   if (isTv()) {
     // Facts about the episode on screen come first, then the show in general.
     deck = interleave(imdbCards("imdb", "IMDb trivia", "episode"), imdbCards("goofs", "IMDb goof", "episode"),
-      wikiCards("episode_wikipedia", "This episode · "))
+      wikiCards("episode_wikipedia", "This episode · "), omdbCards("episode"))
       .concat(interleave(imdbCards("imdb", "IMDb trivia", "series"), imdbCards("goofs", "IMDb goof", "series"),
-        wikiCards("wikipedia", "Series · ")));
+        wikiCards("wikipedia", "Series · "), omdbCards("series")));
   } else {
-    deck = interleave(imdbCards("imdb", "IMDb trivia"), imdbCards("goofs", "IMDb goof"), wikiCards("wikipedia", ""));
+    deck = interleave(imdbCards("imdb", "IMDb trivia"), imdbCards("goofs", "IMDb goof"), wikiCards("wikipedia", ""),
+      omdbCards(undefined));
   }
   state.deck = deck;
   state.deckPos = 0;
@@ -375,10 +391,42 @@ function renderTrivia() {
     const n = shownItems(kind).length;
     $(kind + "-count").textContent = n ? `(${n})` : "";
   }
+  renderGlance();
   renderSpotlight();
   renderImdbList("imdb", "IMDb trivia");
   renderImdbList("goofs", "IMDb goofs");
   renderWiki();
+}
+
+const RATING_SHORT = { IMDb: "IMDb", "Rotten Tomatoes": "RT", Metacritic: "MC" };
+
+// A row of quick stats under the title: ratings, awards and box office from OMDb.
+function renderGlance() {
+  const list = $("glance");
+  const main = omdbFor(isTv() ? "series" : undefined), ep = isTv() ? omdbFor("episode") : null;
+  const items = [];
+  const stat = (label, value, title) => {
+    const li = el("li", { title: title || "" });
+    li.append(el("b", {}, label + " "), value);
+    items.push(li);
+  };
+  const epImdb = ep && ep.ratings.find((r) => r.source === "IMDb");
+  const score = (v) => v.replace(/\/100?$/, ""); // "8.7/10" -> "8.7", "73/100" -> "73"
+  if (epImdb) stat("Episode", score(epImdb.value), "This episode's IMDb rating");
+  for (const r of (main && main.ratings) || []) {
+    stat(RATING_SHORT[r.source] || r.source, score(r.value), r.source);
+  }
+  if (main && main.awards) {
+    const first = main.awards.split(".")[0];
+    items.push(el("li", { title: main.awards }, "🏆 " + first));
+  }
+  if (main && main.box_office) {
+    const n = Number(main.box_office.replace(/[^0-9]/g, ""));
+    const short = n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${Math.round(n / 1e6)}M` : main.box_office;
+    stat("Box office", short, `${main.box_office} at the US box office`);
+  }
+  list.replaceChildren(...items);
+  list.hidden = !items.length;
 }
 
 function renderSpotlight() {
@@ -538,8 +586,9 @@ $("back-to-playing").onclick = () => {
 
 function renderSourcesForm() {
   const f = state.filters;
-  const group = (title, key, options, extraClass = "") => {
-    const box = el("div", { className: "filter-group " + extraClass });
+  const group = (title, key, options, dependsOn) => {
+    const box = el("div", { className: "filter-group" });
+    if (dependsOn) box.dataset.dependsOn = dependsOn;
     box.append(el("h3", {}, title));
     const chips = el("div", { className: "chips" });
     for (const [value, label] of options) {
@@ -555,14 +604,22 @@ function renderSourcesForm() {
   $("sources-form").replaceChildren(
     group("Show", "sources", SOURCES),
     ...(isTv() ? [group("TV facts about", "scopes", SCOPES)] : []),
-    group("Wikipedia sections", "wiki", WIKI_GROUPS, f.sources.wiki ? "" : "off"),
-    group("Kinds of goofs", "goofs", GOOF_GROUPS, f.sources.goofs ? "" : "off"),
+    group("Wikipedia sections", "wiki", WIKI_GROUPS, "wiki"),
+    group("Kinds of goofs", "goofs", GOOF_GROUPS, "goofs"),
   );
+  updateSourcesForm();
+}
+
+// Grey out section choices for sources that are switched off.
+function updateSourcesForm() {
+  document.querySelectorAll("#sources-form [data-depends-on]").forEach((box) => {
+    box.classList.toggle("off", !state.filters.sources[box.dataset.dependsOn]);
+  });
 }
 
 function applyFilters() {
   store("filters", JSON.stringify(state.filters));
-  renderSourcesForm();
+  updateSourcesForm();
   buildDeck();
   renderTrivia();
 }
@@ -578,6 +635,7 @@ $("sources-dialog").addEventListener("click", (e) => {
 $("sources-reset").onclick = () => {
   store("filters", "{}");
   state.filters = loadFilters();
+  renderSourcesForm();
   applyFilters();
 };
 

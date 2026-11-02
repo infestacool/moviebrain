@@ -31,6 +31,7 @@ FIELDS = {
     "include_imdb": ("INCLUDE_IMDB", True),
     "include_goofs": ("INCLUDE_GOOFS", True),
     "include_wikipedia": ("INCLUDE_WIKIPEDIA", True),
+    "omdb_api_key": ("OMDB_API_KEY", ""),       # optional: adds ratings, awards and box office facts
     "wiki_lang": ("WIKI_LANG", "en"),
     "verify_ssl": ("VERIFY_SSL", True),
     "auth_mode": ("AUTH_MODE", "none"),         # none | plex | oidc
@@ -42,7 +43,7 @@ FIELDS = {
     "oidc_name": ("OIDC_NAME", "Pocket ID"),
     "public_url": ("PUBLIC_URL", ""),           # only needed if redirects come out wrong behind a proxy
 }
-SECRET_FIELDS = {"plex_token", "jellyfin_api_key", "oidc_client_secret"}
+SECRET_FIELDS = {"plex_token", "jellyfin_api_key", "oidc_client_secret", "omdb_api_key"}
 AUTH_MODES = ("none", "plex", "oidc")
 CACHE_HOURS = float(os.environ.get("CACHE_HOURS", "24"))
 

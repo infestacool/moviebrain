@@ -45,6 +45,9 @@
         <label class="check"><input type="checkbox" name="include_goofs"> Include IMDb goofs (filming mistakes and continuity errors)</label>
         <label class="check"><input type="checkbox" name="include_wikipedia"> Include Wikipedia</label>
         <p class="hint">These switch a source off for everyone. Each viewer can also hide sources and sections on their own device with the <b>Sources</b> button.</p>
+        <label>OMDb API key <input name="omdb_api_key" type="password" data-secret placeholder="Optional"></label>
+        <p class="hint">Adds ratings (IMDb, Rotten Tomatoes, Metacritic), awards and box office facts. Get a free key at <a href="https://www.omdbapi.com/apikey.aspx" target="_blank" rel="noopener">omdbapi.com</a> (1,000 lookups a day; activate it from the email they send).</p>
+        <div class="row"><button type="button" class="secondary" data-test="omdb">Test key</button><span class="test-result" id="test-omdb"></span></div>
         <label>Wikipedia language <input name="wiki_lang" maxlength="10" placeholder="en"></label>
       </section>
 
