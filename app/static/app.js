@@ -15,7 +15,7 @@ const state = {
   polledAt: 0,
   tab: store("tab") || "spotlight",
   showSpoilers: store("spoilers") === "1",
-  deck: [], deckPos: 0, autoplay: true, spotStarted: 0,
+  deck: [], deckPos: 0, autoplay: store("autoplay") !== "0", spotStarted: 0,
 };
 
 function store(key, value) {
@@ -62,7 +62,11 @@ async function poll() {
 }
 
 function currentSession() {
-  return state.sessions.find((s) => s.key === state.selectedKey) || state.sessions[0] || null;
+  const found = state.sessions.find((s) => s.key === state.selectedKey);
+  if (found || !state.sessions.length) return found || null;
+  // Stick with the first pick, so pausing (which re-sorts the list) doesn't jump to another movie.
+  state.selectedKey = state.sessions[0].key;
+  return state.sessions[0];
 }
 
 function render() {
@@ -136,17 +140,73 @@ function renderHero(movie, session) {
   updateProgress();
 }
 
-function updateProgress() {
-  const s = state.manual ? null : currentSession();
-  const show = !!(s && s.duration_ms);
-  $("progress").hidden = !show;
-  $("progress-text").textContent = "";
-  if (!show) return;
+const ICON_PAUSE = "M6 5h4v14H6zM14 5h4v14h-4z";
+const ICON_PLAY = "M8 5v14l11-7z";
+
+function currentPosition(s) {
   let pos = s.position_ms;
   if (s.state === "playing") pos += Date.now() - state.polledAt;
-  pos = Math.min(pos, s.duration_ms);
+  return Math.min(pos, s.duration_ms || pos);
+}
+
+function updateProgress() {
+  const s = state.manual ? null : currentSession();
+  $("playback").hidden = !s;
+  if (!s) return;
+
+  const btn = $("play-toggle");
+  const playing = s.state === "playing";
+  $("play-icon").setAttribute("d", playing ? ICON_PAUSE : ICON_PLAY);
+  btn.disabled = !s.controllable;
+  btn.setAttribute("aria-label", (playing ? "Pause" : "Resume") + " the movie");
+  btn.title = s.controllable ? `${playing ? "Pause" : "Resume"} on ${s.device || "the player"}` : "This player can't be controlled remotely";
+
+  $("progress").hidden = !s.duration_ms;
+  $("progress-text").textContent = "";
+  if (!s.duration_ms) return;
+  const pos = currentPosition(s);
   $("progress-bar").style.width = (100 * pos / s.duration_ms).toFixed(2) + "%";
   $("progress-text").textContent = `${fmtTime(pos)} / ${fmtTime(s.duration_ms)} · ${fmtTime(s.duration_ms - pos)} left`;
+}
+
+let playbackErrorTimer;
+function showPlaybackError(message) {
+  const el = $("playback-error");
+  el.textContent = message;
+  el.hidden = !message;
+  clearTimeout(playbackErrorTimer);
+  if (message) playbackErrorTimer = setTimeout(() => { el.hidden = true; }, 8000);
+}
+
+async function togglePlayback() {
+  const s = currentSession();
+  if (!s || !s.controllable) return;
+  const action = s.state === "playing" ? "pause" : "play";
+  const btn = $("play-toggle");
+  btn.classList.add("busy");
+  showPlaybackError("");
+  // Update the screen right away; the next poll confirms what the player really did.
+  const previous = { state: s.state, position_ms: s.position_ms, polledAt: state.polledAt };
+  s.position_ms = currentPosition(s);
+  state.polledAt = Date.now();
+  s.state = action === "pause" ? "paused" : "playing";
+  updateProgress();
+  try {
+    const res = await fetch("/api/playback", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ key: s.key, action }),
+    });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+    setTimeout(poll, 1500);
+  } catch (e) {
+    Object.assign(s, { state: previous.state, position_ms: previous.position_ms });
+    state.polledAt = previous.polledAt;
+    showPlaybackError(e.message);
+    updateProgress();
+  } finally {
+    btn.classList.remove("busy");
+  }
 }
 
 function setBackdrop(url) {
@@ -252,7 +312,12 @@ function renderSpotlight() {
   }
   $("spot-source").textContent = `${item.source} · ${state.deckPos + 1}/${state.deck.length}`;
   $("spot-text").textContent = item.text;
-  $("spot-play").textContent = state.autoplay ? "❚❚" : "▶";
+}
+
+function renderAutoToggle() {
+  const btn = $("spot-auto");
+  btn.textContent = "Auto-advance: " + (state.autoplay ? "On" : "Off");
+  btn.setAttribute("aria-pressed", String(state.autoplay));
 }
 
 function stepSpotlight(delta) {
@@ -327,11 +392,15 @@ $("spoilers").onchange = (e) => {
 $("spot-next").onclick = () => stepSpotlight(1);
 $("spot-prev").onclick = () => stepSpotlight(-1);
 $("spot-card").onclick = () => stepSpotlight(1);
-$("spot-play").onclick = () => {
+$("spot-auto").onclick = () => {
   state.autoplay = !state.autoplay;
+  store("autoplay", state.autoplay ? "1" : "0");
   state.spotStarted = Date.now();
-  renderSpotlight();
+  renderAutoToggle();
 };
+renderAutoToggle();
+
+$("play-toggle").onclick = togglePlayback;
 
 document.addEventListener("keydown", (e) => {
   if (e.target.tagName === "INPUT" || state.tab !== "spotlight") return;

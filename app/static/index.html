@@ -45,8 +45,16 @@
           <h1 id="title"></h1>
           <p id="tagline" class="tagline"></p>
           <p id="meta" class="meta"></p>
-          <div id="progress" class="progress" hidden><div id="progress-bar"></div></div>
-          <p id="progress-text" class="meta small"></p>
+          <div id="playback" class="playback" hidden>
+            <button id="play-toggle" class="play-toggle" aria-label="Pause movie">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path id="play-icon" d=""/></svg>
+            </button>
+            <div class="playback-track">
+              <div id="progress" class="progress"><div id="progress-bar"></div></div>
+              <p id="progress-text" class="meta small"></p>
+            </div>
+          </div>
+          <p id="playback-error" class="playback-error" hidden></p>
         </div>
       </div>
 
@@ -65,9 +73,9 @@
           <p id="spot-text" class="spot-text"></p>
         </article>
         <div class="spot-controls">
-          <button id="spot-prev" aria-label="Previous">‹</button>
-          <button id="spot-play" aria-label="Pause auto-advance">❚❚</button>
-          <button id="spot-next" aria-label="Next">›</button>
+          <button id="spot-prev" aria-label="Previous fact">‹</button>
+          <button id="spot-auto" class="auto-toggle" aria-pressed="true" title="Move to the next fact every 20 seconds">Auto-advance: On</button>
+          <button id="spot-next" aria-label="Next fact">›</button>
         </div>
         <div id="spot-timer" class="spot-timer"><div></div></div>
       </div>

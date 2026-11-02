@@ -22,7 +22,7 @@
 
         <fieldset>
           <legend>Plex</legend>
-          <label>Server URL <input name="plex_url" type="url" placeholder="http://192.168.1.10:32400"></label>
+          <label>Server URL <input name="plex_url" type="url" placeholder="http://0.0.0.0:32400"></label>
           <label>Plex token <input name="plex_token" type="password" data-secret></label>
           <p class="hint">Find your token: open any item in Plex Web → ⋯ → Get Info → View XML, and copy the <code>X-Plex-Token</code> value from the address bar.</p>
           <div class="row"><button type="button" class="secondary" data-test="plex">Test connection</button><span class="test-result" id="test-plex"></span></div>
@@ -30,7 +30,7 @@
 
         <fieldset>
           <legend>Jellyfin</legend>
-          <label>Server URL <input name="jellyfin_url" type="url" placeholder="http://192.168.1.10:8096"></label>
+          <label>Server URL <input name="jellyfin_url" type="url" placeholder="http://0.0.0.0:8096"></label>
           <label>API key <input name="jellyfin_api_key" type="password" data-secret></label>
           <p class="hint">Create one in Jellyfin: Dashboard → API Keys → +.</p>
           <div class="row"><button type="button" class="secondary" data-test="jellyfin">Test connection</button><span class="test-result" id="test-jellyfin"></span></div>

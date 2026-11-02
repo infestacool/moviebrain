@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import time
 
 import httpx
 
@@ -75,6 +76,8 @@ async def plex_sessions(client: httpx.AsyncClient) -> list[dict]:
             "state": player.get("state", "playing"),
             "position_ms": m.get("viewOffset") or 0,
             "duration_ms": duration,
+            "control_id": player.get("machineIdentifier"),
+            "controllable": bool(player.get("machineIdentifier")),
         })
     return results
 
@@ -111,6 +114,8 @@ async def jellyfin_sessions(client: httpx.AsyncClient) -> list[dict]:
             # Jellyfin uses 100-nanosecond ticks.
             "position_ms": (play.get("PositionTicks") or 0) // 10_000,
             "duration_ms": (item.get("RunTimeTicks") or 0) // 10_000,
+            "control_id": s.get("Id"),
+            "controllable": bool(s.get("Id")) and s.get("SupportsRemoteControl", True),
         })
     return results
 
@@ -137,6 +142,41 @@ async def now_playing() -> dict:
             "jellyfin": config.jellyfin_configured(),
         },
     }
+
+
+async def set_playback(key: str, action: str) -> None:
+    """Pause or resume a playing session, identified by its key from now_playing()."""
+    if action not in ("pause", "play"):
+        raise ValueError("Unknown action")
+    # Look the session up again so only real, current players can be controlled.
+    session = next((s for s in (await now_playing())["sessions"] if s["key"] == key), None)
+    if not session:
+        raise ValueError("That movie isn't playing any more")
+    if not session["controllable"]:
+        raise ValueError(f"{session['device'] or 'This player'} can't be controlled remotely")
+
+    async with httpx.AsyncClient(timeout=8, verify=config.S.verify_ssl) as client:
+        if session["source"] == "jellyfin":
+            command = "Pause" if action == "pause" else "Unpause"
+            r = await client.post(
+                f"{config.S.jellyfin_url}/Sessions/{session['control_id']}/Playing/{command}",
+                headers={"Authorization": f'MediaBrowser Token="{config.S.jellyfin_api_key}"'},
+            )
+        else:
+            # Plex relays player commands to the client named in X-Plex-Target-Client-Identifier.
+            r = await client.get(
+                f"{config.S.plex_url}/player/playback/{action}",
+                params={"type": "video", "commandID": int(time.time())},
+                headers={
+                    "X-Plex-Token": config.S.plex_token,
+                    "X-Plex-Target-Client-Identifier": session["control_id"],
+                    "X-Plex-Client-Identifier": config.plex_client_id(),
+                },
+            )
+    if r.status_code >= 400:
+        log.warning("%s %s failed: %s %s", session["source"], action, r.status_code, r.text[:200])
+        raise ValueError(f"{session['device'] or 'The player'} didn't accept the command. "
+                         "Some apps (like Plex Web) don't support remote control.")
 
 
 async def fetch_image(source: str, item_id: str, kind: str) -> tuple[bytes, str] | None:

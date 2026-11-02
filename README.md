@@ -2,7 +2,8 @@
 
 A small web app for your Unraid server. It shows what movie is playing on **Plex** or **Jellyfin** and displays trivia about it from **IMDb** and **Wikipedia**. It works on phones, tablets and computers.
 
-- **Spotlight**: one fact at a time, moving on every 20 seconds. Tap the card or use ← → to skip.
+- **Play/pause** the movie from the button beside the progress bar. This works with most Jellyfin apps and with Plex apps that support remote control (Plex Web doesn't).
+- **Spotlight**: one fact at a time. Tap the card or use ← → to skip, and turn *Auto-advance* on to move to a new fact every 20 seconds.
 - **IMDb**: the full list of IMDb trivia. Spoilers stay blurred until you tap them, unless you turn on the *Spoilers* toggle.
 - **Wikipedia**: production, release, reception and legacy sections from the film's article.
 - If several movies are playing, buttons at the top let you switch between them. When nothing is playing, you can look up any movie by name.
@@ -28,8 +29,8 @@ Everything is set up on the **Settings** page. You need **at least one** of Plex
 
 | Server | URL example | Key |
 |---|---|---|
-| Plex | `http://192.168.1.10:32400` | **Plex token**: in Plex Web, open any item, then ⋯ → *Get Info* → *View XML*. Copy the `X-Plex-Token=` value from the address bar. |
-| Jellyfin | `http://192.168.1.10:8096` | **API key**: *Dashboard → API Keys → +* |
+| Plex | `http://0.0.0.0:32400` | **Plex token**: in Plex Web, open any item, then ⋯ → *Get Info* → *View XML*. Copy the `X-Plex-Token=` value from the address bar. |
+| Jellyfin | `http://0.0.0.0:8096` | **API key**: *Dashboard → API Keys → +* |
 
 Use **Test connection** to check each one before saving. *Only show movies played by* limits the page to certain users, for example so you don't see what the kids are watching in another room.
 

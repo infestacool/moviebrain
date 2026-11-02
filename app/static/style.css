@@ -71,7 +71,17 @@ h1 { margin: 0 0 4px; font-size: clamp(1.5rem, 4vw, 2.4rem); line-height: 1.15; 
 .meta { margin: 0; color: var(--muted); font-size: 14px; }
 .small { font-size: 13px; }
 
-.progress { height: 5px; background: var(--surface-2); border-radius: 3px; margin: 12px 0 4px; overflow: hidden; }
+.playback { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.playback-track { flex: 1; min-width: 0; }
+.play-toggle {
+  flex: none; width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer;
+  background: var(--accent); color: var(--accent-text); display: grid; place-items: center;
+}
+.play-toggle svg { width: 20px; height: 20px; fill: currentColor; }
+.play-toggle:disabled { background: var(--surface-2); color: var(--muted); cursor: not-allowed; }
+.play-toggle.busy { opacity: .6; }
+.playback-error { color: var(--danger); font-size: 13px; margin: 6px 0 0; }
+.progress { height: 5px; background: var(--surface-2); border-radius: 3px; margin: 2px 0 4px; overflow: hidden; }
 #progress-bar { height: 100%; width: 0; background: var(--accent); transition: width 1s linear; }
 
 /* Tabs */
@@ -100,6 +110,11 @@ h1 { margin: 0 0 4px; font-size: clamp(1.5rem, 4vw, 2.4rem); line-height: 1.15; 
   color: var(--text); font-size: 22px; cursor: pointer;
 }
 .spot-controls button:hover { background: var(--surface-2); }
+.spot-controls .auto-toggle {
+  width: auto; height: 52px; border-radius: 26px; padding: 0 18px; font: inherit; font-size: 14px; font-weight: 600;
+  color: var(--muted); border: 1px solid var(--surface-2);
+}
+.spot-controls .auto-toggle[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
 .spot-timer { height: 3px; background: var(--surface); border-radius: 2px; margin-top: 16px; overflow: hidden; }
 .spot-timer div { height: 100%; width: 0; background: var(--muted); }
 
