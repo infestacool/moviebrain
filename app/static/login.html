@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e0f13">
+  <title>Sign in · Triviarr</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="login">
+    <div class="empty-icon">🎬</div>
+    <h1>Triviarr</h1>
+    <p class="meta">Sign in to see trivia for what's playing.</p>
+    <p id="error" class="error" hidden></p>
+    <a id="signin" class="signin-button" href="#">Sign in</a>
+  </main>
+  <script>
+    const err = new URLSearchParams(location.search).get("error");
+    if (err) { const e = document.getElementById("error"); e.textContent = err; e.hidden = false; }
+    fetch("/api/auth/status").then((r) => r.json()).then((s) => {
+      if (s.mode === "none" || s.user) { location.href = "/"; return; }
+      const btn = document.getElementById("signin");
+      btn.href = "/auth/" + s.mode + "/start";
+      btn.textContent = s.mode === "plex" ? "Sign in with Plex" : "Sign in with " + s.oidc_name;
+      btn.classList.add(s.mode);
+    });
+  </script>
+</body>
+</html>

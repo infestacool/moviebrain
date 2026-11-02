@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e0f13">
+  <title>Triviarr Settings</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">← Triviarr</a>
+    <span class="meta">Settings</span>
+  </header>
+
+  <main>
+    <form id="form" class="settings" autocomplete="off">
+      <section class="card">
+        <h2>Media servers</h2>
+        <p class="hint">Set up Plex, Jellyfin, or both. At least one is required.</p>
+
+        <fieldset>
+          <legend>Plex</legend>
+          <label>Server URL <input name="plex_url" type="url" placeholder="http://192.168.1.10:32400"></label>
+          <label>Plex token <input name="plex_token" type="password" data-secret></label>
+          <p class="hint">Find your token: open any item in Plex Web → ⋯ → Get Info → View XML, and copy the <code>X-Plex-Token</code> value from the address bar.</p>
+          <div class="row"><button type="button" class="secondary" data-test="plex">Test connection</button><span class="test-result" id="test-plex"></span></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Jellyfin</legend>
+          <label>Server URL <input name="jellyfin_url" type="url" placeholder="http://192.168.1.10:8096"></label>
+          <label>API key <input name="jellyfin_api_key" type="password" data-secret></label>
+          <p class="hint">Create one in Jellyfin: Dashboard → API Keys → +.</p>
+          <div class="row"><button type="button" class="secondary" data-test="jellyfin">Test connection</button><span class="test-result" id="test-jellyfin"></span></div>
+        </fieldset>
+      </section>
+
+      <section class="card">
+        <h2>Display</h2>
+        <label>Only show movies played by <input name="users" placeholder="Everyone (or e.g. chris, kids)"></label>
+        <p class="hint">Comma-separated Plex/Jellyfin usernames. Leave blank to show everyone's movies.</p>
+        <label class="check"><input type="checkbox" name="include_imdb"> Include IMDb trivia</label>
+        <label>Wikipedia language <input name="wiki_lang" maxlength="10" placeholder="en"></label>
+      </section>
+
+      <section class="card">
+        <h2>Sign-in</h2>
+        <p id="auth-env-warning" class="warning" hidden>Sign-in is currently switched off by the <code>AUTH_DISABLE</code> setting on the container.</p>
+        <div class="choices">
+          <label class="choice"><input type="radio" name="auth_mode" value="none"><span><b>No sign-in</b><small>Anyone on your network can view the page.</small></span></label>
+          <label class="choice"><input type="radio" name="auth_mode" value="plex"><span><b>Sign in with Plex</b><small>Anyone with access to your Plex server.</small></span></label>
+          <label class="choice"><input type="radio" name="auth_mode" value="oidc"><span><b>Sign in with Pocket ID</b><small>Or another OpenID Connect provider.</small></span></label>
+        </div>
+
+        <div id="auth-plex" class="auth-panel" hidden>
+          <p class="hint">People who can access your Plex server can sign in. The server owner can change settings. Plex sign-in requires a Plex server above, or an allow-list below.</p>
+        </div>
+
+        <div id="auth-oidc" class="auth-panel" hidden>
+          <label>Provider name <input name="oidc_name" placeholder="Pocket ID"></label>
+          <label>Issuer URL <input name="oidc_issuer" type="url" placeholder="https://id.example.com"></label>
+          <label>Client ID <input name="oidc_client_id"></label>
+          <label>Client secret <input name="oidc_client_secret" type="password" data-secret></label>
+          <p class="hint">In Pocket ID: Administration → OIDC Clients → Add. Use this callback URL:</p>
+          <code id="oidc-callback" class="copy"></code>
+        </div>
+
+        <div id="auth-lists" class="auth-panel" hidden>
+          <label>Allowed users <input name="allowed_users" placeholder="Optional"></label>
+          <p class="hint">Comma-separated usernames, emails or (for Pocket ID) groups. With Plex, these are allowed in addition to people who share your server. With Pocket ID, leave blank to allow everyone the provider lets in.</p>
+          <label>Admins <input name="admin_users" placeholder="Optional"></label>
+          <p class="hint">Who can open this settings page. Leave blank for the Plex server owner, or everyone with Pocket ID.</p>
+        </div>
+      </section>
+
+      <section class="card">
+        <details>
+          <summary>Advanced</summary>
+          <label class="check"><input type="checkbox" name="verify_ssl"> Verify HTTPS certificates</label>
+          <p class="hint">Turn off if a server uses a self-signed certificate.</p>
+          <label>Public URL <input name="public_url" type="url" placeholder="Detected automatically"></label>
+          <p class="hint">Only needed if sign-in redirects go to the wrong address behind a reverse proxy, e.g. <code>https://trivia.example.com</code>.</p>
+        </details>
+      </section>
+
+      <div class="save-bar">
+        <span id="save-result" class="test-result"></span>
+        <button type="submit">Save</button>
+      </div>
+    </form>
+  </main>
+
+  <script src="/static/settings.js"></script>
+</body>
+</html>

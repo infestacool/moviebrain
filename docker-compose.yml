@@ -1,0 +1,15 @@
+services:
+  triviarr:
+    image: ghcr.io/infestacool/triviarr:latest
+    container_name: triviarr
+    restart: unless-stopped
+    ports:
+      - "8085:8080"
+    volumes:
+      - /mnt/user/appdata/triviarr:/config
+    # Everything can be set up in the web UI (⚙ Settings). These are optional starting values.
+    environment:
+      - PLEX_URL=
+      - PLEX_TOKEN=
+      - JELLYFIN_URL=
+      - JELLYFIN_API_KEY=

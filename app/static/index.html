@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0e0f13">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Triviarr</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div id="backdrop" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">🎬 Triviarr</div>
+    <div class="actions">
+      <label class="toggle" title="Show spoilers without tapping">
+        <input type="checkbox" id="spoilers"> <span>Spoilers</span>
+      </label>
+      <a id="settings-link" class="icon-link" href="/settings" title="Settings" hidden>⚙︎ Settings</a>
+      <button id="signout" class="icon-link" title="Sign out" hidden>Sign out</button>
+    </div>
+  </header>
+
+  <nav id="sessions" class="sessions" hidden></nav>
+
+  <main>
+    <section id="empty" class="empty" hidden>
+      <div class="empty-icon">🍿</div>
+      <h1>Nothing playing</h1>
+      <p id="empty-detail">Start a movie on Plex or Jellyfin and its trivia will appear here.</p>
+      <p id="setup-link" hidden><a class="link-button" href="/settings">Open settings</a></p>
+      <form id="search" class="search">
+        <input id="search-input" type="search" placeholder="Or look up any movie…" autocomplete="off">
+        <button type="submit">Look up</button>
+      </form>
+    </section>
+
+    <section id="movie" hidden>
+      <div class="hero">
+        <img id="poster" class="poster" alt="">
+        <div class="hero-text">
+          <h1 id="title"></h1>
+          <p id="tagline" class="tagline"></p>
+          <p id="meta" class="meta"></p>
+          <div id="progress" class="progress" hidden><div id="progress-bar"></div></div>
+          <p id="progress-text" class="meta small"></p>
+        </div>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="spotlight" class="active">Spotlight</button>
+        <button role="tab" data-tab="imdb">IMDb <span id="imdb-count" class="count"></span></button>
+        <button role="tab" data-tab="wiki">Wikipedia</button>
+      </div>
+
+      <div id="loading" class="loading" hidden>Finding trivia…</div>
+      <div id="error" class="error" hidden></div>
+
+      <div id="tab-spotlight" class="panel">
+        <article id="spot-card" class="spot-card">
+          <div id="spot-source" class="spot-source"></div>
+          <p id="spot-text" class="spot-text"></p>
+        </article>
+        <div class="spot-controls">
+          <button id="spot-prev" aria-label="Previous">‹</button>
+          <button id="spot-play" aria-label="Pause auto-advance">❚❚</button>
+          <button id="spot-next" aria-label="Next">›</button>
+        </div>
+        <div id="spot-timer" class="spot-timer"><div></div></div>
+      </div>
+
+      <div id="tab-imdb" class="panel" hidden>
+        <ol id="imdb-list" class="facts"></ol>
+      </div>
+
+      <div id="tab-wiki" class="panel" hidden>
+        <div id="wiki-content"></div>
+      </div>
+
+      <button id="back-to-playing" class="link-button" hidden>← Back to what's playing</button>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
