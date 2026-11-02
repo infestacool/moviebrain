@@ -54,6 +54,12 @@
         </div>
       </div>
 
+      <div id="tv-view" class="segmented" role="radiogroup" aria-label="Show facts about" hidden>
+        <button role="radio" data-view="episode" aria-checked="true">This episode</button>
+        <button role="radio" data-view="series" aria-checked="false">Series</button>
+        <button role="radio" data-view="both" aria-checked="false">Both</button>
+      </div>
+
       <div class="tabs" role="tablist">
         <button role="tab" data-tab="spotlight" class="active">Spotlight</button>
         <button role="tab" data-tab="imdb">Trivia <span id="imdb-count" class="count"></span></button>

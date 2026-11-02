@@ -264,11 +264,28 @@ state.filters = {
   goofs: showAll(GOOF_GROUPS),
 };
 
+// For TV, each device picks episode, series or both on the main screen; Settings sets the default.
+const TV_VIEWS = {
+  episode: { episode: true, series: false },
+  series: { episode: false, series: true },
+  both: { episode: true, series: true },
+};
+state.tvView = TV_VIEWS[store("tvView")] ? store("tvView") : null;
+
+function applyTvView() {
+  state.filters.scopes = { ...TV_VIEWS[state.tvView || "episode"] };
+}
+
 async function loadDisplayChoices() {
   try {
     const res = await fetch("/api/display");
     if (res.ok) state.filters = await res.json();
   } catch { /* keep showing everything */ }
+  if (!state.tvView) {
+    const { episode, series } = state.filters.scopes;
+    state.tvView = episode && series ? "both" : series ? "series" : "episode";
+  }
+  applyTvView();
 }
 
 // kind is "imdb" (trivia) or "goofs", matching the API's field names.
@@ -312,7 +329,7 @@ function subject() {
   return isTv() ? (state.filters.scopes.series ? "show" : "episode") : "movie";
 }
 
-const SERIES_HINT = " Turn on series facts in Settings to see trivia about the whole show.";
+const SERIES_HINT = " Tap Series above for trivia about the whole show.";
 
 // Long Wikipedia paragraphs read badly on a card; keep the first few sentences.
 function trimSentences(text, max = 420) {
@@ -333,7 +350,7 @@ function imdbCards(kind, label, scope) {
   return shownItems(kind)
     .filter((t) => t.scope === scope && (state.showSpoilers || !t.spoiler))
     .map((t) => {
-      const where = scope ? SCOPE_LABELS[scope] + " · " : "";
+      const where = scope && state.tvView === "both" ? SCOPE_LABELS[scope] + " · " : "";
       const category = kind === "goofs" && t.category ? " · " + t.category : "";
       return { source: where + label + category + (t.spoiler ? " · spoiler" : ""), text: t.text };
     });
@@ -349,7 +366,7 @@ function omdbFor(scope) {
 
 function omdbCards(scope) {
   const o = omdbFor(scope);
-  const where = scope ? SCOPE_LABELS[scope] + " · " : "";
+  const where = scope && state.tvView === "both" ? SCOPE_LABELS[scope] + " · " : "";
   return o ? o.facts.map((text) => ({ source: where + "OMDb", text })) : [];
 }
 
@@ -376,9 +393,9 @@ function buildDeck() {
   if (isTv()) {
     // Facts about the episode on screen come first, then the show in general.
     deck = interleave(imdbCards("imdb", "IMDb trivia", "episode"), imdbCards("goofs", "IMDb goof", "episode"),
-      wikiCards("episode_wikipedia", "This episode · "), omdbCards("episode"))
+      wikiCards("episode_wikipedia", state.tvView === "both" ? "This episode · " : ""), omdbCards("episode"))
       .concat(interleave(imdbCards("imdb", "IMDb trivia", "series"), imdbCards("goofs", "IMDb goof", "series"),
-        wikiCards("wikipedia", "Series · "), omdbCards("series")));
+        wikiCards("wikipedia", state.tvView === "both" ? "Series · " : ""), omdbCards("series")));
   } else {
     deck = interleave(imdbCards("imdb", "IMDb trivia"), imdbCards("goofs", "IMDb goof"), wikiCards("wikipedia", ""),
       omdbCards(undefined));
@@ -388,7 +405,14 @@ function buildDeck() {
   state.spotStarted = Date.now();
 }
 
+function renderTvView() {
+  const box = $("tv-view");
+  box.hidden = !isTv();
+  box.querySelectorAll("button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.view === state.tvView)));
+}
+
 function renderTrivia() {
+  renderTvView();
   const f = state.filters;
   const tabSource = { imdb: "imdb", goofs: "goofs", wiki: "wiki" };
   if (tabSource[state.tab] && !f.sources[tabSource[state.tab]]) state.tab = "spotlight";
@@ -477,7 +501,7 @@ function renderImdbList(kind, label) {
   }
   list.replaceChildren(...items.map((t) => {
     const li = el("li");
-    const label = [SCOPE_LABELS[t.scope], t.spoiler && "Spoiler", t.category && t.category !== "Uncategorized" && t.category]
+    const label = [state.tvView === "both" && SCOPE_LABELS[t.scope], t.spoiler && "Spoiler", t.category && t.category !== "Uncategorized" && t.category]
       .filter(Boolean).join(" · ");
     if (label) li.append(el("div", { className: "badge" + (t.spoiler ? " spoiler" : "") }, label));
     const p = el("div", {}, t.text);
@@ -596,6 +620,17 @@ $("back-to-playing").onclick = () => {
   state.triviaFor = null;
   render();
 };
+
+$("tv-view").querySelectorAll("button").forEach((b) => {
+  b.onclick = () => {
+    if (state.tvView === b.dataset.view) return;
+    state.tvView = b.dataset.view;
+    store("tvView", state.tvView);
+    applyTvView();
+    buildDeck();
+    renderTrivia();
+  };
+});
 
 // One-second tick: progress bar and spotlight auto-advance.
 setInterval(() => {

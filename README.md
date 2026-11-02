@@ -22,9 +22,9 @@ Trivia for whatever you're watching. Moviebrain checks what's playing on **Plex*
 - **Spotlight**: one fact at a time. Tap the card or use ← → to skip. The circular-arrows button turns auto-advance on (a new fact every 20 seconds) or off.
 - **Trivia** and **Goofs**: the full IMDb lists. Spoilers stay blurred until you tap them, or tap the eye button in the header to show them all.
 - **Wikipedia**: production, release, reception and legacy sections. Plot sections are always skipped.
-- **TV shows**: trivia, goofs and Wikipedia for the episode on screen. Turn on *series facts* in Settings to add facts about the whole show, labelled *Series*.
+- **TV shows**: trivia, goofs and Wikipedia for the episode on screen. While a show is playing, switch between **This episode**, **Series** and **Both** right on the main screen (remembered per device).
 - **Ratings & awards** (optional, free OMDb key): IMDb, Rotten Tomatoes and Metacritic scores, awards and box office under the title, plus OMDb facts in Spotlight.
-- **Choose your sources** in Settings: switch each source on or off, pick Wikipedia sections and kinds of goofs, and choose episode and/or series facts for TV.
+- **Choose your sources** in Settings: switch each source on or off, pick Wikipedia sections and kinds of goofs, and set the default view for TV.
 - **Several things playing?** Buttons at the top switch between them. Nothing playing? Look up any movie by name.
 - **Optional sign-in** with Plex or Pocket ID (or any OpenID Connect provider).
 
@@ -109,7 +109,7 @@ Moviebrain used to be called Triviarr. To switch an existing container, edit it 
 | Section | What it does |
 |---|---|
 | **Media servers** | Plex (URL + token) and/or Jellyfin (URL + API key). At least one is required. **Test connection** checks each one. |
-| **Sources** | Switch IMDb trivia, IMDb goofs, Wikipedia and Ratings & awards on or off. Pick Wikipedia sections and kinds of goofs. For TV, episode facts are on and series facts are off by default. |
+| **Sources** | Switch IMDb trivia, IMDb goofs, Wikipedia and Ratings & awards on or off. Pick Wikipedia sections and kinds of goofs, and set the default TV view (this episode, unless you change it). |
 | **Display** | Only show what certain people are watching, e.g. so you don't see what the kids are watching in another room. |
 | **Sign-in** | Off by default. See below. |
 | **Advanced** | HTTPS certificate checks, and a public URL for reverse proxies. |

@@ -99,6 +99,17 @@ h1 { margin: 0 0 4px; font-size: clamp(1.5rem, 4vw, 2.4rem); line-height: 1.15; 
 .progress { height: 5px; background: var(--surface-2); border-radius: 3px; margin: 2px 0 4px; overflow: hidden; }
 #progress-bar { height: 100%; width: 0; background: var(--accent); transition: width 1s linear; }
 
+/* Episode / Series / Both, shown while a TV episode plays */
+.segmented {
+  display: flex; gap: 2px; padding: 3px; margin: 0 0 10px; border-radius: 12px;
+  background: var(--surface); width: fit-content; max-width: 100%;
+}
+.segmented button {
+  padding: 7px 16px; border-radius: 9px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer;
+  white-space: nowrap;
+}
+.segmented button[aria-checked="true"] { background: var(--accent); color: var(--accent-text); }
+
 /* Tabs */
 .tabs {
   display: flex; gap: 4px; background: var(--surface); padding: 4px; border-radius: 12px;
