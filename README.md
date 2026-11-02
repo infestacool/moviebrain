@@ -22,9 +22,9 @@ Trivia for whatever you're watching. Moviebrain checks what's playing on **Plex*
 - **Spotlight**: one fact at a time. Tap the card or use ← → to skip. The circular-arrows button turns auto-advance on (a new fact every 20 seconds) or off.
 - **Trivia** and **Goofs**: the full IMDb lists. Spoilers stay blurred until you tap them, or tap the eye button in the header to show them all.
 - **Wikipedia**: production, release, reception and legacy sections. Plot sections are always skipped.
-- **TV shows**: trivia, goofs and Wikipedia for the episode on screen. While a show is playing, switch between **This episode**, **Series** and **Both** right on the main screen (remembered per device).
+- **TV shows**: trivia, goofs and Wikipedia for the episode on screen, or tap **Series** to toggle to facts about the whole show (remembered per device).
 - **Ratings & awards** (optional, free OMDb key): IMDb, Rotten Tomatoes and Metacritic scores, awards and box office under the title, plus OMDb facts in Spotlight.
-- **Choose your sources** in Settings: switch each source on or off, pick Wikipedia sections and kinds of goofs, and set the default view for TV.
+- **Choose your sources** in Settings: switch each source on or off, pick Wikipedia sections and kinds of goofs, and pick whether TV starts on the episode or the series.
 - **Several things playing?** Buttons at the top switch between them. Nothing playing? Look up any movie by name.
 - **Optional sign-in** with Plex or Pocket ID (or any OpenID Connect provider).
 
@@ -100,16 +100,14 @@ To update, open the application in Container Station and choose **Recreate** wit
 
 Any Docker host works the same way: run the image with port 8080 and a `/config` volume. On Synology, use **Container Manager → Project** and the Compose file above.
 
-### Moving from Triviarr
-
-Moviebrain used to be called Triviarr. To switch an existing container, edit it and change the image (Unraid: *Repository*) from `ghcr.io/infestacool/triviarr:latest` to `ghcr.io/infestacool/moviebrain:latest`. Keep the same `/config` folder and your settings carry over. You'll need to sign in again if sign-in is turned on.
-
 ## Settings
+
+Open **⚙ Settings** from the main page. Changes save automatically as you make them.
 
 | Section | What it does |
 |---|---|
 | **Media servers** | Plex (URL + token) and/or Jellyfin (URL + API key). At least one is required. **Test connection** checks each one. |
-| **Sources** | Switch IMDb trivia, IMDb goofs, Wikipedia and Ratings & awards on or off. Pick Wikipedia sections and kinds of goofs, and set the default TV view (this episode, unless you change it). |
+| **Sources** | Switch IMDb trivia, IMDb goofs, Wikipedia and Ratings & awards on or off. Pick Wikipedia sections and kinds of goofs, and whether TV starts on *This episode* (the default) or *Series*. |
 | **Display** | Only show what certain people are watching, e.g. so you don't see what the kids are watching in another room. |
 | **Sign-in** | Off by default. See below. |
 | **Advanced** | HTTPS certificate checks, and a public URL for reverse proxies. |

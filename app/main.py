@@ -118,9 +118,10 @@ async def save_settings(changes: dict = Body(...)):
     has_jellyfin = bool(get("jellyfin_url") and get("jellyfin_api_key"))
     if not (has_plex or has_jellyfin):
         raise HTTPException(400, "Set up at least one server: Plex (URL + token) or Jellyfin (URL + API key).")
-    for name in ("plex_url", "jellyfin_url", "oidc_issuer", "public_url"):
+    for name, label in (("plex_url", "Plex URL"), ("jellyfin_url", "Jellyfin URL"),
+                        ("oidc_issuer", "Issuer URL"), ("public_url", "Public URL")):
         if get(name) and not str(get(name)).startswith(("http://", "https://")):
-            raise HTTPException(400, f"{name.replace('_', ' ').title()} must start with http:// or https://")
+            raise HTTPException(400, f"{label} must start with http:// or https://")
 
     mode = get("auth_mode")
     if mode == "plex" and not (has_plex or get("allowed_users")):

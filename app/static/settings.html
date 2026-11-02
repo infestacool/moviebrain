@@ -115,11 +115,11 @@
         <div class="tile tv">
           <div class="tile-head">
             <span class="logo logo-tv" aria-hidden="true">📺</span>
-            <div class="tile-title"><h3>For TV shows</h3><p>What to show by default: the episode on screen, the whole series, or both. Anyone can switch on the main screen while a show is playing.</p></div>
+            <div class="tile-title"><h3>For TV shows</h3><p>Start with facts about the episode on screen or the whole series. Anyone can toggle between them on the main screen.</p></div>
           </div>
-          <div class="toggles">
-            <label class="switch-row"><span>This episode</span><span class="switch"><input type="checkbox" name="tv_episode_facts"><span aria-hidden="true"></span></span></label>
-            <label class="switch-row"><span>The series</span><span class="switch"><input type="checkbox" name="tv_series_facts"><span aria-hidden="true"></span></span></label>
+          <div class="segmented" role="radiogroup" aria-label="Default for TV shows">
+            <label><input type="radio" name="tv_default" value="episode"><span>This episode</span></label>
+            <label><input type="radio" name="tv_default" value="series"><span>Series</span></label>
           </div>
         </div>
       </section>
@@ -169,6 +169,11 @@
             <label>Admins <input name="admin_users" placeholder="Optional"></label>
             <p class="hint">Who can open this page. Leave blank for the Plex server owner, or everyone with Pocket ID.</p>
           </div>
+
+          <div id="auth-confirm" class="auth-confirm" hidden>
+            <button type="button" class="primary" id="auth-confirm-btn">Turn on sign-in</button>
+            <p class="hint">Fill in the details above first. You'll be asked to sign in straight away.</p>
+          </div>
         </div>
       </section>
 
@@ -185,9 +190,8 @@
         </div>
       </section>
 
-      <div class="save-bar">
-        <span id="save-result" class="test-result"></span>
-        <button type="submit">Save</button>
+      <div class="save-bar" aria-live="polite">
+        <span id="save-result" class="save-status"></span>
       </div>
     </form>
   </main>

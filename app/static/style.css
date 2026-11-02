@@ -109,6 +109,16 @@ h1 { margin: 0 0 4px; font-size: clamp(1.5rem, 4vw, 2.4rem); line-height: 1.15; 
   white-space: nowrap;
 }
 .segmented button[aria-checked="true"] { background: var(--accent); color: var(--accent-text); }
+/* The same control as radio buttons, on the Settings page */
+.settings .segmented { background: var(--bg); margin: 0; }
+.settings .segmented label { margin: 0; position: relative; }
+.segmented label input { position: absolute; opacity: 0; pointer-events: none; }
+.segmented label span {
+  display: block; padding: 7px 16px; border-radius: 9px; font-size: 14px; font-weight: 600; color: var(--muted);
+  cursor: pointer; white-space: nowrap;
+}
+.segmented label input:checked + span { background: var(--accent); color: var(--accent-text); }
+.segmented label input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Tabs */
 .tabs {
@@ -313,13 +323,23 @@ button.secondary { background: var(--surface-2); color: var(--text); }
 .choice span { display: grid; }
 .choice small { color: var(--muted); font-size: 13px; }
 .warning { background: var(--accent-soft); color: var(--accent); padding: 10px 12px; border-radius: 8px; font-size: 14px; }
+button.primary { background: var(--accent); color: var(--accent-text); font-weight: 700; border-radius: 10px; padding: 11px 18px; cursor: pointer; }
+.auth-confirm { margin-top: 6px; }
+.auth-confirm .hint { margin: 8px 0 0; }
+
+/* Settings save as they change; this pill says how that went. */
 .save-bar {
-  position: sticky; bottom: 0; display: flex; justify-content: flex-end; align-items: center; gap: 14px;
-  padding: 14px 0 calc(14px + env(safe-area-inset-bottom)); background: linear-gradient(transparent, var(--bg) 35%);
+  position: sticky; bottom: 0; display: flex; justify-content: center; pointer-events: none;
+  padding: 12px 0 calc(16px + env(safe-area-inset-bottom));
 }
-.save-bar button { background: var(--surface-2); color: var(--muted); padding: 12px 32px; transition: all .2s; }
-body.dirty .save-bar button { background: var(--accent); color: var(--accent-text); }
-body.dirty #save-result { color: var(--accent); }
+.save-status {
+  padding: 8px 16px; border-radius: 18px; font-size: 14px; font-weight: 600; background: #23262f;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .4); color: var(--muted); opacity: 0; transform: translateY(8px);
+  transition: opacity .25s, transform .25s; max-width: 100%;
+}
+.save-status.show { opacity: 1; transform: none; }
+.save-status.ok { color: #7ddc8a; }
+.save-status.bad { color: var(--danger); pointer-events: auto; }
 
 /* Login */
 .login { text-align: center; padding-top: 16vh; max-width: 420px; }

@@ -1,8 +1,18 @@
 "use strict";
 
+// Settings save themselves: switches and choices straight away, text a moment after typing stops.
+// Turning sign-in on is the exception: it waits for the "Turn on sign-in" button.
+
 const form = document.getElementById("form");
 const $ = (id) => document.getElementById(id);
-let saved = null; // last loaded/saved values, to spot unsaved changes
+const TYPING_DELAY = 1000;
+
+let lastSaved = null;      // JSON of the values the server has
+let savedAuthMode = "none"; // the sign-in mode actually in effect
+let saveTimer = null;
+let saving = false;
+let saveAgain = false;
+let statusTimer = null;
 
 function field(name) { return form.elements[name]; }
 
@@ -10,6 +20,14 @@ function setResult(id, ok, text) {
   const el = $(id);
   el.textContent = text;
   el.className = "test-result " + (ok ? "ok" : "bad");
+}
+
+function showStatus(text, kind = "") {
+  const el = $("save-result");
+  clearTimeout(statusTimer);
+  el.textContent = text;
+  el.className = "save-status show " + kind;
+  if (kind === "ok") statusTimer = setTimeout(() => el.classList.remove("show"), 1800);
 }
 
 async function api(path, options = {}) {
@@ -20,21 +38,28 @@ async function api(path, options = {}) {
   return data;
 }
 
+function chosenAuthMode() {
+  return form.elements.auth_mode.value;
+}
+
 function showAuthPanels() {
-  const mode = form.elements.auth_mode.value;
+  const mode = chosenAuthMode();
   $("auth-plex").hidden = mode !== "plex";
   $("auth-oidc").hidden = mode !== "oidc";
   $("auth-lists").hidden = mode === "none";
+  // Switching sign-in on needs a deliberate click; switching it off just saves.
+  $("auth-confirm").hidden = mode === "none" || mode === savedAuthMode;
+  $("auth-confirm-btn").textContent = mode === "plex" ? "Turn on Plex sign-in" : `Turn on ${field("oidc_name").value || "Pocket ID"} sign-in`;
 }
 
 // Wikipedia sections and goof kinds are chips; the server stores the ones switched off.
-function renderChips(boxId, groups, hiddenCsv, field) {
+function renderChips(boxId, groups, hiddenCsv, hiddenField) {
   const hidden = new Set(hiddenCsv.split(",").map((s) => s.trim()).filter(Boolean));
   $(boxId).replaceChildren(...groups.map(([key, label]) => {
     const chip = document.createElement("label");
     chip.className = "chip";
     const input = Object.assign(document.createElement("input"), { type: "checkbox", checked: !hidden.has(key) });
-    input.dataset.hiddenField = field;
+    input.dataset.hiddenField = hiddenField;
     input.dataset.key = key;
     const text = document.createElement("span");
     text.textContent = label;
@@ -56,10 +81,6 @@ function refreshState() {
     badge.textContent = ready ? "Set up" : "Not set up";
     badge.className = "status " + (ready ? "ready" : "");
   }
-  const dirty = saved !== null && JSON.stringify(collect()) !== saved;
-  document.body.classList.toggle("dirty", dirty);
-  if (dirty) setResult("save-result", true, "Unsaved changes");
-  else if ($("save-result").textContent === "Unsaved changes") $("save-result").textContent = "";
 }
 
 async function load() {
@@ -72,19 +93,23 @@ async function load() {
     else if (el.dataset.secret !== undefined) {
       el.value = "";
       el.dataset.isSet = s[el.name + "_set"] ? "1" : "";
-      el.placeholder = s[el.name + "_set"] ? "Saved — leave blank to keep" : el.placeholder;
+      if (s[el.name + "_set"]) el.placeholder = "Saved — leave blank to keep";
     } else el.value = s[el.name] ?? "";
   }
+  const tvDefault = s.tv_series_facts && !s.tv_episode_facts ? "series" : "episode";
+  form.querySelector(`input[name=tv_default][value=${tvDefault}]`).checked = true;
   renderChips("wiki-chips", data.groups.wiki, s.hidden_wiki_sections, "hidden_wiki_sections");
   renderChips("goof-chips", data.groups.goofs, s.hidden_goof_kinds, "hidden_goof_kinds");
   $("oidc-callback").textContent = data.callback_urls.oidc;
   $("auth-env-warning").hidden = !data.auth_disabled_by_env;
+  savedAuthMode = s.auth_mode;
   showAuthPanels();
-  saved = JSON.stringify(collect());
+  lastSaved = JSON.stringify(collect());
   refreshState();
 }
 
-function collect() {
+// The values to save. Sign-in only changes when it's being turned off, or via the confirm button.
+function collect(authMode = chosenAuthMode() === "none" ? "none" : savedAuthMode) {
   const out = { hidden_wiki_sections: [], hidden_goof_kinds: [] };
   for (const el of form.elements) {
     if (el.dataset.hiddenField) {
@@ -98,14 +123,71 @@ function collect() {
   }
   out.hidden_wiki_sections = out.hidden_wiki_sections.join(",");
   out.hidden_goof_kinds = out.hidden_goof_kinds.join(",");
+  out.tv_episode_facts = out.tv_default === "episode";
+  out.tv_series_facts = out.tv_default === "series";
+  delete out.tv_default;
+  out.auth_mode = authMode;
   return out;
 }
 
+function scheduleSave(delay) {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => save({ quiet: delay > 0 }), delay);
+}
+
+// quiet: saving mid-typing, so a half-entered value shows as "not saved yet" rather than an error.
+async function save({ quiet = false, authMode } = {}) {
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  if (saving) { saveAgain = true; return; }
+  const values = collect(authMode);
+  const json = JSON.stringify(values);
+  if (json === lastSaved) {
+    // Back to what's saved (e.g. a bad value undone), so any earlier error no longer applies.
+    if (!$("save-result").classList.contains("ok")) $("save-result").classList.remove("show");
+    return;
+  }
+
+  saving = true;
+  showStatus("Saving…");
+  try {
+    await api("/api/settings", { method: "POST", body: json });
+    lastSaved = json;
+    for (const el of form.querySelectorAll("[data-secret]")) {
+      if (el.value.trim()) el.dataset.isSet = "1";
+    }
+    const turnedOn = values.auth_mode !== "none" && values.auth_mode !== savedAuthMode;
+    savedAuthMode = values.auth_mode;
+    showAuthPanels();
+    if (turnedOn) {
+      showStatus("✓ Sign-in is on. Taking you to sign in…", "ok");
+      setTimeout(() => { location.href = "/login"; }, 1500);
+    } else {
+      showStatus("✓ Saved", "ok");
+    }
+  } catch (err) {
+    showStatus((quiet ? "Not saved yet: " : "✗ Not saved: ") + err.message, quiet ? "" : "bad");
+  } finally {
+    saving = false;
+    if (saveAgain) { saveAgain = false; save(); }
+  }
+}
+
+const isText = (el) => el.matches("input:not([type=checkbox]):not([type=radio])");
+
+form.addEventListener("input", (e) => {
+  refreshState();
+  if (isText(e.target)) scheduleSave(TYPING_DELAY);
+});
 form.addEventListener("change", (e) => {
   if (e.target.name === "auth_mode") showAuthPanels();
   refreshState();
+  scheduleSave(0);
 });
-form.addEventListener("input", refreshState);
+form.addEventListener("submit", (e) => { e.preventDefault(); save(); });
+
+$("auth-confirm-btn").onclick = () => save({ authMode: chosenAuthMode() });
+field("oidc_name").addEventListener("input", showAuthPanels);
 
 document.querySelectorAll("[data-test]").forEach((btn) => {
   btn.onclick = async () => {
@@ -133,30 +215,13 @@ document.querySelectorAll("[data-test]").forEach((btn) => {
 
 $("oidc-callback").onclick = () => navigator.clipboard && navigator.clipboard.writeText($("oidc-callback").textContent);
 
-window.addEventListener("beforeunload", (e) => {
-  if (document.body.classList.contains("dirty")) e.preventDefault();
+// Leaving mid-typing: send what's there without waiting for the timer.
+window.addEventListener("pagehide", () => {
+  if (lastSaved === null || !saveTimer) return;
+  const json = JSON.stringify(collect());
+  if (json !== lastSaved) {
+    fetch("/api/settings", { method: "POST", body: json, keepalive: true, headers: { "content-type": "application/json" } });
+  }
 });
 
-form.onsubmit = async (e) => {
-  e.preventDefault();
-  const values = collect();
-  const before = (await api("/api/auth/status")).mode;
-  setResult("save-result", true, "Saving…");
-  try {
-    await api("/api/settings", { method: "POST", body: JSON.stringify(values) });
-    saved = JSON.stringify(values);
-    document.body.classList.remove("dirty");
-    setResult("save-result", true, "✓ Saved");
-    // Turning sign-in on (or switching provider) means signing in with it now.
-    if (values.auth_mode !== "none" && values.auth_mode !== before) {
-      setTimeout(() => { location.href = "/login"; }, 600);
-    } else {
-      await load();
-      setResult("save-result", true, "✓ Saved");
-    }
-  } catch (err) {
-    setResult("save-result", false, "✗ " + err.message);
-  }
-};
-
-load().catch((e) => setResult("save-result", false, "Couldn't load settings: " + e.message));
+load().catch((e) => showStatus("Couldn't load settings: " + e.message, "bad"));

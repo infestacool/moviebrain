@@ -264,11 +264,11 @@ state.filters = {
   goofs: showAll(GOOF_GROUPS),
 };
 
-// For TV, each device picks episode, series or both on the main screen; Settings sets the default.
+// For TV, each device toggles between episode and series facts on the main screen;
+// Settings sets the default.
 const TV_VIEWS = {
   episode: { episode: true, series: false },
   series: { episode: false, series: true },
-  both: { episode: true, series: true },
 };
 state.tvView = TV_VIEWS[store("tvView")] ? store("tvView") : null;
 
@@ -283,7 +283,7 @@ async function loadDisplayChoices() {
   } catch { /* keep showing everything */ }
   if (!state.tvView) {
     const { episode, series } = state.filters.scopes;
-    state.tvView = episode && series ? "both" : series ? "series" : "episode";
+    state.tvView = series && !episode ? "series" : "episode";
   }
   applyTvView();
 }
@@ -343,16 +343,13 @@ function trimSentences(text, max = 420) {
   return out.trim() || text.slice(0, max) + "…";
 }
 
-const SCOPE_LABELS = { episode: "This episode", series: "Series" };
-
 // scope is "episode", "series", or undefined for movies.
 function imdbCards(kind, label, scope) {
   return shownItems(kind)
     .filter((t) => t.scope === scope && (state.showSpoilers || !t.spoiler))
     .map((t) => {
-      const where = scope && state.tvView === "both" ? SCOPE_LABELS[scope] + " · " : "";
       const category = kind === "goofs" && t.category ? " · " + t.category : "";
-      return { source: where + label + category + (t.spoiler ? " · spoiler" : ""), text: t.text };
+      return { source: label + category + (t.spoiler ? " · spoiler" : ""), text: t.text };
     });
 }
 
@@ -366,12 +363,11 @@ function omdbFor(scope) {
 
 function omdbCards(scope) {
   const o = omdbFor(scope);
-  const where = scope && state.tvView === "both" ? SCOPE_LABELS[scope] + " · " : "";
-  return o ? o.facts.map((text) => ({ source: where + "OMDb", text })) : [];
+  return o ? o.facts.map((text) => ({ source: "OMDb", text })) : [];
 }
 
-function wikiCards(which, prefix) {
-  return wikiParagraphs(which).map((p) => ({ source: `${prefix}Wikipedia · ${p.section}`, text: trimSentences(p.text) }));
+function wikiCards(which) {
+  return wikiParagraphs(which).map((p) => ({ source: `Wikipedia · ${p.section}`, text: trimSentences(p.text) }));
 }
 
 // Two trivia facts, then a goof, then Wikipedia, then an OMDb fact, so every source shows up.
@@ -389,17 +385,10 @@ function interleave(trivia, goofs, wiki, extra = []) {
 }
 
 function buildDeck() {
-  let deck;
-  if (isTv()) {
-    // Facts about the episode on screen come first, then the show in general.
-    deck = interleave(imdbCards("imdb", "IMDb trivia", "episode"), imdbCards("goofs", "IMDb goof", "episode"),
-      wikiCards("episode_wikipedia", state.tvView === "both" ? "This episode · " : ""), omdbCards("episode"))
-      .concat(interleave(imdbCards("imdb", "IMDb trivia", "series"), imdbCards("goofs", "IMDb goof", "series"),
-        wikiCards("wikipedia", state.tvView === "both" ? "Series · " : ""), omdbCards("series")));
-  } else {
-    deck = interleave(imdbCards("imdb", "IMDb trivia"), imdbCards("goofs", "IMDb goof"), wikiCards("wikipedia", ""),
-      omdbCards(undefined));
-  }
+  // For TV, the facts for the chosen view: the episode on screen or the whole series.
+  const scope = isTv() ? state.tvView : undefined;
+  const deck = interleave(imdbCards("imdb", "IMDb trivia", scope), imdbCards("goofs", "IMDb goof", scope),
+    wikiCards(scope === "episode" ? "episode_wikipedia" : "wikipedia"), omdbCards(scope));
   state.deck = deck;
   state.deckPos = 0;
   state.spotStarted = Date.now();
@@ -501,7 +490,7 @@ function renderImdbList(kind, label) {
   }
   list.replaceChildren(...items.map((t) => {
     const li = el("li");
-    const label = [state.tvView === "both" && SCOPE_LABELS[t.scope], t.spoiler && "Spoiler", t.category && t.category !== "Uncategorized" && t.category]
+    const label = [t.spoiler && "Spoiler", t.category && t.category !== "Uncategorized" && t.category]
       .filter(Boolean).join(" · ");
     if (label) li.append(el("div", { className: "badge" + (t.spoiler ? " spoiler" : "") }, label));
     const p = el("div", {}, t.text);
