@@ -235,4 +235,20 @@ window.addEventListener("pagehide", () => {
   }
 });
 
+function formatSize(bytes) {
+  return bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`;
+}
+
+async function showCache(promise = api("/api/settings/cache")) {
+  try {
+    const c = await promise;
+    $("cache-size").textContent = `${c.entries} item${c.entries === 1 ? "" : "s"}, ${formatSize(c.bytes)}`;
+  } catch {
+    $("cache-size").textContent = "unknown";
+  }
+}
+
+$("cache-clear").onclick = () => showCache(api("/api/settings/cache/clear", { method: "POST" }));
+showCache();
+
 load().catch((e) => showStatus("Couldn't load settings: " + e.message, "bad"));

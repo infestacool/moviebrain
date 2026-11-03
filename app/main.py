@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import auth, config, media, people, trivia
+from . import auth, cache, config, media, people, trivia
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -187,6 +187,17 @@ async def save_settings(changes: dict = Body(...)):
 
     config.update(changes, clear=cleared)
     return {"ok": True, "settings": config.public_view(), "cleared": cleared}
+
+
+@app.get("/api/settings/cache")
+async def cache_stats():
+    return cache.stats()
+
+
+@app.post("/api/settings/cache/clear")
+async def cache_clear():
+    cache.clear()
+    return cache.stats()
 
 
 @app.post("/api/settings/test/{source}")

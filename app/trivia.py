@@ -9,11 +9,10 @@ import asyncio
 import logging
 import os
 import re
-import time
 
 import httpx
 
-from . import config
+from . import cache, config
 
 log = logging.getLogger(__name__)
 
@@ -29,28 +28,9 @@ SKIP_SECTIONS = {
     "further reading", "footnotes", "citations", "sources", "works cited",
 }
 
-_cache: dict[str, tuple[float, object]] = {}
-
-
-def _cached(key: str):
-    hit = _cache.get(key)
-    if hit and hit[0] > time.time():
-        return hit[1]
-    return None
-
-
-CACHE_MAX = 5000  # entries; anyone who can open the page can trigger lookups
-
-
-def _store(key: str, value, ttl: float | None = None):
-    if len(_cache) >= CACHE_MAX:
-        now = time.time()
-        for k in [k for k, (expires, _) in _cache.items() if expires <= now]:
-            del _cache[k]
-        while len(_cache) >= CACHE_MAX:  # still full: drop the oldest entries
-            del _cache[next(iter(_cache))]
-    _cache[key] = (time.time() + (ttl if ttl is not None else config.CACHE_HOURS * 3600), value)
-    return value
+# Shared with people.py; long-lived entries are also kept on disk (see cache.py).
+_cached = cache.get
+_store = cache.put
 
 
 def graphql_data(r: httpx.Response) -> dict:

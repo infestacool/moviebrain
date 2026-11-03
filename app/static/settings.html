@@ -190,6 +190,11 @@
         </header>
         <div class="tile">
           <label class="switch-row"><span>Verify HTTPS certificates<small>Turn off if a server uses a self-signed certificate.</small></span><span class="switch"><input type="checkbox" name="verify_ssl"><span aria-hidden="true"></span></span></label>
+          <div class="row cache-row">
+            <span>Saved facts: <b id="cache-size">…</b></span>
+            <button type="button" class="secondary" id="cache-clear">Clear</button>
+          </div>
+          <p class="hint">Fetched facts are kept in <code>/config/cache</code> so restarts don't fetch them again. Kept up to 7 days, at most 200 MB.</p>
           <label>Public URL <input name="public_url" type="url" placeholder="Detected automatically"></label>
           <p class="hint">Only if sign-in redirects go to the wrong address behind a reverse proxy, e.g. <code>https://trivia.example.com</code>.</p>
         </div>

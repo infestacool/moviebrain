@@ -64,7 +64,7 @@ GOOF_KINDS = [
 SECRET_FIELDS = {"plex_token", "jellyfin_api_key", "oidc_client_secret", "omdb_api_key"}
 AUTH_MODES = ("none", "plex", "oidc", "authentik")
 OIDC_MODES = ("oidc", "authentik")  # both use the OpenID Connect flow
-CACHE_HOURS = float(os.environ.get("CACHE_HOURS", "24"))
+CACHE_HOURS = float(os.environ.get("CACHE_HOURS", "168"))  # how long fetched facts are kept (7 days)
 
 S = SimpleNamespace()  # live settings; read as config.S.plex_url etc.
 _internal: dict = {}   # generated values (session secret, Plex client id)

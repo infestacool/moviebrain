@@ -82,7 +82,8 @@ All optional; anything you change on the Settings page wins.
 | `PUBLIC_URL` | | External address, if behind a reverse proxy |
 | `VERIFY_SSL` | `true` | Check HTTPS certificates |
 | `AUTH_DISABLE` | `false` | Recovery from a lock-out |
-| `CACHE_HOURS` | `24` | How long fetched trivia is kept |
+| `CACHE_HOURS` | `168` | How long fetched facts are kept (saved in `/config/cache`) |
+| `CACHE_MAX_MB` | `200` | Size limit for saved facts |
 
 ## Development
 
