@@ -95,6 +95,7 @@ function render() {
     $("empty-detail").textContent = emptyMessage();
     const c = (state.serverInfo && state.serverInfo.configured) || {};
     $("setup-link").hidden = !!(c.plex || c.jellyfin) || !state.isAdmin;
+    loadRecent();
     renderScreen();
     return;
   }
@@ -105,9 +106,30 @@ function render() {
   const key = (movie.imdb_id || movie.tmdb_id || `${movie.title}|${movie.year || ""}`) +
     (ep ? `|${ep.imdb_id || `s${ep.season}e${ep.number}`}` : "");
   if (key !== state.triviaFor) loadTrivia(movie, key);
-  const castKey = session ? `${session.source}:${session.media_id}:${session.item_id}` : null;
-  if (castKey !== state.castFor) loadCast(session, castKey);
+  const lib = libraryItem();
+  const castKey = lib ? `${lib.source}:${lib.media_id}:${lib.item_id}` : null;
+  if (castKey !== state.castFor) loadCast(lib, castKey);
   renderScreen();
+}
+
+// The title whose cast and artwork can come from your server: what's playing, or a library pick.
+function libraryItem() {
+  if (state.manual) return state.manual.source ? state.manual : null;
+  return currentSession();
+}
+
+// "Plex", "Jellyfin" or "Plex or Jellyfin", depending on what's set up.
+function serverNames() {
+  const c = (state.serverInfo && state.serverInfo.configured) || {};
+  return [c.plex && "Plex", c.jellyfin && "Jellyfin"].filter(Boolean).join(" or ") || "your media server";
+}
+
+function lookUp(movie) {
+  state.manual = movie;
+  state.triviaFor = null;
+  hideSuggestions();
+  window.scrollTo(0, 0);
+  render();
 }
 
 function emptyMessage() {
@@ -116,8 +138,7 @@ function emptyMessage() {
   if (errors.length) return "Couldn't reach " + errors.map(([k, v]) => `${k} (${v})`).join(", ");
   const c = info.configured || {};
   if (!c.plex && !c.jellyfin) return "No media server set up yet. Add your Plex or Jellyfin server in Settings.";
-  const names = [c.plex && "Plex", c.jellyfin && "Jellyfin"].filter(Boolean).join(" or ");
-  return `Start a movie or TV show on ${names} and its trivia will appear here.`;
+  return `Start a movie or TV show on ${serverNames()} and its trivia will appear here.`;
 }
 
 function renderSessionChips() {
@@ -153,15 +174,16 @@ function renderHero(movie, session) {
   $("tagline").textContent = ep ? "" : movie.tagline || "";
 
   const poster = $("poster");
-  if (session) {
-    const src = `/api/image/${session.source}/${session.item_id}/poster`;
+  const art = session || (movie.source ? movie : null); // playing, or picked from your library
+  if (art) {
+    const src = `/api/image/${art.source}/${art.item_id}/poster`;
     poster.onerror = () => { poster.dataset.failed = src; poster.hidden = true; };
     if (poster.getAttribute("src") !== src) poster.src = src;
     poster.hidden = poster.dataset.failed === src;
-    setBackdrop(`/api/image/${session.source}/${session.item_id}/backdrop`);
-    const source = session.source === "plex" ? "Plex" : "Jellyfin";
-    $("meta").textContent = [session.state === "paused" ? "Paused" : "Now playing", source, session.user, session.device]
-      .filter(Boolean).join(" · ");
+    setBackdrop(`/api/image/${art.source}/${art.item_id}/backdrop`);
+    const source = art.source === "plex" ? "Plex" : "Jellyfin";
+    $("meta").textContent = !session ? `From your ${source} library`
+      : [session.state === "paused" ? "Paused" : "Now playing", source, session.user, session.device].filter(Boolean).join(" · ");
   } else {
     poster.hidden = true;
     poster.removeAttribute("src");
@@ -215,6 +237,7 @@ async function loadTrivia(movie, key) {
   if (movie.tmdb_id) params.set("tmdb", movie.tmdb_id);
   if (movie.title) params.set("title", movie.title);
   if (movie.year) params.set("year", movie.year);
+  if (movie.kind === "tv" && !movie.episode) params.set("kind", "tv"); // a show looked up on its own
   if (movie.episode) {
     params.set("kind", "tv");
     if (movie.episode.imdb_id) params.set("ep_imdb", movie.episode.imdb_id);
@@ -228,8 +251,9 @@ async function loadTrivia(movie, key) {
     const data = await res.json();
     if (state.triviaFor !== key) return; // movie changed while loading
     state.trivia = data;
-    if (state.manual && data.wikipedia) {
-      $("title").textContent = data.wikipedia.title;
+    // A typed search shows what was typed; use the matched article's name, minus "(1963 film)".
+    if (state.manual && !state.manual.imdb_id && !state.manual.source && data.wikipedia) {
+      $("title").textContent = data.wikipedia.title.replace(/\s*\([^)]*\)$/, "");
     }
   } catch (e) {
     if (state.triviaFor !== key) return;
@@ -425,7 +449,7 @@ function renderTrivia() {
   const f = state.filters;
   const tabSource = { imdb: "imdb", goofs: "goofs", wiki: "wiki" };
   // The cast comes from the media server, so it isn't there for titles looked up by hand.
-  const tabShown = (tab) => (tab === "cast" ? !state.manual : !tabSource[tab] || f.sources[tabSource[tab]]);
+  const tabShown = (tab) => (tab === "cast" ? !!libraryItem() : !tabSource[tab] || f.sources[tabSource[tab]]);
   if (!tabShown(state.tab)) state.tab = "spotlight";
   document.querySelectorAll(".tabs button").forEach((b) => {
     b.classList.toggle("active", b.dataset.tab === state.tab);
@@ -477,8 +501,8 @@ function renderSourceLinks() {
   }
   if (omdbFor(scope)) lines.push(sourceLine("Ratings & awards", [{ text: "OMDb", href: "https://www.omdbapi.com/" }]));
 
-  const session = state.manual ? null : currentSession();
-  if (session) lines.push(sourceLine("Cast & artwork", [{ text: `your ${session.source === "plex" ? "Plex" : "Jellyfin"} server` }]));
+  const lib = libraryItem();
+  if (lib) lines.push(sourceLine("Cast & artwork", [{ text: `your ${lib.source === "plex" ? "Plex" : "Jellyfin"} server` }]));
 
   box.replaceChildren(el("div", { className: "sub" }, "Sources"), ...lines);
   box.hidden = !lines.length;
@@ -659,7 +683,7 @@ function renderCast() {
 }
 
 async function openPerson(p) {
-  const session = currentSession();
+  const session = libraryItem();
   if (!session) return;
   const dialog = $("person");
   $("person-photo").replaceWith(Object.assign(avatar(p, "avatar large"), { id: "person-photo" }));
@@ -797,14 +821,102 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "ArrowLeft") stepSpotlight(-1);
 });
 
+// ---- Search: suggestions as you type, and recently added titles -------------
+
+let suggestTimer = null;
+let suggestions = [];
+let suggestPos = -1;
+
+function hideSuggestions() {
+  $("search-suggestions").hidden = true;
+  $("search-input").setAttribute("aria-expanded", "false");
+  suggestPos = -1;
+}
+
+function renderSuggestions() {
+  const list = $("search-suggestions");
+  if (!suggestions.length) { hideSuggestions(); return; }
+  list.replaceChildren(...suggestions.map((r, i) => {
+    const li = el("li", { role: "option", id: `suggestion-${i}` });
+    li.setAttribute("aria-selected", String(i === suggestPos));
+    li.append(el("span", { className: "s-title" }, r.title + (r.year ? ` (${r.year})` : "")));
+    li.append(el("span", { className: "s-meta" }, [r.kind === "tv" ? "TV series" : "Movie", r.stars].filter(Boolean).join(" · ")));
+    li.onmousedown = (e) => { e.preventDefault(); pickSuggestion(r); }; // before the input loses focus
+    return li;
+  }));
+  list.hidden = false;
+  $("search-input").setAttribute("aria-expanded", "true");
+}
+
+function pickSuggestion(r) {
+  $("search-input").value = r.title;
+  lookUp({ title: r.title, year: r.year, imdb_id: r.imdb_id, kind: r.kind });
+}
+
+$("search-input").addEventListener("input", () => {
+  clearTimeout(suggestTimer);
+  const q = $("search-input").value.trim();
+  if (q.length < 2) { suggestions = []; hideSuggestions(); return; }
+  suggestTimer = setTimeout(async () => {
+    try {
+      const res = await fetch("/api/suggest?" + new URLSearchParams({ q }));
+      const data = await res.json();
+      if ($("search-input").value.trim() !== q) return; // typed on since
+      suggestions = data.results || [];
+      suggestPos = -1;
+      renderSuggestions();
+    } catch { /* suggestions are optional */ }
+  }, 250);
+});
+
+$("search-input").addEventListener("keydown", (e) => {
+  if ($("search-suggestions").hidden) return;
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    // -1 means "nothing selected": the typed text is searched as is.
+    const last = suggestions.length - 1;
+    if (e.key === "ArrowDown") suggestPos = suggestPos >= last ? -1 : suggestPos + 1;
+    else suggestPos = suggestPos <= -1 ? last : suggestPos - 1;
+    renderSuggestions();
+  } else if (e.key === "Escape") {
+    hideSuggestions();
+  }
+});
+$("search-input").addEventListener("blur", () => setTimeout(hideSuggestions, 100));
+
 $("search").onsubmit = (e) => {
   e.preventDefault();
+  if (suggestPos >= 0 && suggestions[suggestPos]) { pickSuggestion(suggestions[suggestPos]); return; }
   const q = $("search-input").value.trim();
-  if (!q) return;
-  state.manual = { title: q };
-  state.triviaFor = null;
-  render();
+  if (q) lookUp({ title: q });
 };
+
+let recentLoadedAt = 0;
+async function loadRecent() {
+  if (Date.now() - recentLoadedAt < 5 * 60 * 1000) return; // refreshed every few minutes at most
+  recentLoadedAt = Date.now();
+  try {
+    const movies = (await (await fetch("/api/recent")).json()).movies || [];
+    const sources = new Set(movies.map((m) => m.source));
+    $("recent-title").textContent = sources.size === 1
+      ? `Recently added on ${[...sources][0] === "plex" ? "Plex" : "Jellyfin"}` : "Recently added";
+    $("recent-shelf").replaceChildren(...movies.map((m) => {
+      const item = el("button", { className: "shelf-item" });
+      const cover = el("div", { className: "cover" });
+      cover.append(el("span", {}, m.title));
+      const img = el("img", { src: `/api/image/${m.source}/${m.item_id}/poster`, alt: "", loading: "lazy" });
+      img.onerror = () => img.remove();
+      cover.append(img);
+      item.append(cover, el("div", { className: "title" }, m.title));
+      if (m.year) item.append(el("div", { className: "sub" }, String(m.year)));
+      item.onclick = () => lookUp({ ...m, kind: "movie" });
+      return item;
+    }));
+    $("recent").hidden = !movies.length;
+  } catch {
+    $("recent").hidden = true;
+  }
+}
 
 $("back-to-playing").onclick = () => {
   state.manual = null;
@@ -894,7 +1006,7 @@ function renderScreen() {
 
   const item = movie && state.deck[state.deckPos];
   const text = item ? item.text
-    : !movie ? "Facts appear here when something starts playing on Plex or Jellyfin."
+    : !movie ? `Facts appear here when something starts playing on ${serverNames()}.`
     : state.trivia ? `No trivia found for this ${subject()}.` : "Finding trivia…";
   const textEl = $("screen-text");
   if (textEl.dataset.text !== text) {

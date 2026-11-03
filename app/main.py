@@ -79,12 +79,28 @@ async def get_trivia(
 ):
     if not (imdb or tmdb or title):
         raise HTTPException(400, "Provide imdb, tmdb or title")
-    ep = {"imdb_id": ep_imdb, "season": season, "number": episode} if kind == "tv" else None
+    # A show looked up on its own has no episode; then it's treated like a movie (series facts only).
+    has_episode = kind == "tv" and (ep_imdb or season is not None)
+    ep = {"imdb_id": ep_imdb, "season": season, "number": episode} if has_episode else None
     try:
         return await trivia.get_trivia(imdb, tmdb, title, year, "tv" if kind == "tv" else "movie", ep)
     except Exception as e:  # network trouble resolving the film
         log.exception("Trivia lookup failed")
         raise HTTPException(502, f"Trivia lookup failed: {e}")
+
+
+@app.get("/api/suggest")
+async def get_suggestions(q: str = ""):
+    try:
+        return {"results": await trivia.suggest(q)}
+    except Exception as e:  # suggestions are a nicety; never break the search box
+        log.warning("Search suggestions failed: %s", e)
+        return {"results": []}
+
+
+@app.get("/api/recent")
+async def get_recent():
+    return {"movies": await media.recently_added()}
 
 
 @app.get("/api/cast")

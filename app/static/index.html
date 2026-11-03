@@ -64,13 +64,21 @@
     <section id="empty" class="empty" hidden>
       <div class="empty-icon">🍿</div>
       <h1>Nothing playing</h1>
-      <p id="empty-detail">Start a movie or TV show on Plex or Jellyfin and its trivia will appear here.</p>
+      <p id="empty-detail">Start a movie or TV show and its trivia will appear here.</p>
       <p class="screen-link"><button id="empty-screen" class="link-reset">Open second screen</button></p>
       <p id="setup-link" hidden><a class="link-button" href="/settings">Open settings</a></p>
-      <form id="search" class="search">
-        <input id="search-input" type="search" placeholder="Or look up any movie…" autocomplete="off">
+      <form id="search" class="search" role="search">
+        <div class="search-box">
+          <input id="search-input" type="search" placeholder="Or look up any movie or show…" autocomplete="off"
+                 role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="search-suggestions">
+          <ul id="search-suggestions" class="suggestions" role="listbox" hidden></ul>
+        </div>
         <button type="submit">Look up</button>
       </form>
+      <div id="recent" class="recent" hidden>
+        <h2 id="recent-title" class="recent-title">Recently added</h2>
+        <div id="recent-shelf" class="shelf"></div>
+      </div>
     </section>
 
     <section id="movie" hidden>

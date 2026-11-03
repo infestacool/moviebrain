@@ -21,6 +21,7 @@ Trivia for whatever's playing on **Plex** or **Jellyfin**: IMDb trivia and goofs
 - **Trivia, Goofs, Wikipedia**: full lists; spoilers blurred until tapped; plots skipped.
 - **Cast**: tap an actor to see their other titles **in your library**, plus their bio.
 - **TV**: facts for the episode on screen, or toggle to the whole series.
+- **Nothing playing?** Pick from your recently added movies, or search with suggestions for popular movies and shows.
 - **Ratings & awards** (optional OMDb key).
 - **Settings page** that saves as you go; choose sources, sections and goof kinds.
 - **Source links** at the bottom of every title and person page.

@@ -208,6 +208,45 @@ async def now_playing() -> dict:
     }
 
 
+async def recently_added(limit: int = 12) -> list[dict]:
+    """Newest movies on the configured servers, for suggestions when nothing is playing."""
+    async def plex(client):
+        if not config.plex_configured():
+            return []
+        r = await client.get(f"{config.S.plex_url}/library/recentlyAdded", headers={
+            "X-Plex-Token": config.S.plex_token, "Accept": "application/json",
+            "X-Plex-Container-Start": "0", "X-Plex-Container-Size": str(limit * 3),
+        }, params={"type": 1, "includeGuids": 1})
+        r.raise_for_status()
+        items = [m for m in r.json().get("MediaContainer", {}).get("Metadata") or [] if m.get("type") == "movie"]
+        return [{"source": "plex", "item_id": str(m["ratingKey"]), "media_id": str(m["ratingKey"]),
+                 "title": m.get("title"), "year": m.get("year"),
+                 "imdb_id": _parse_guids(m.get("Guid")).get("imdb"), "tmdb_id": _parse_guids(m.get("Guid")).get("tmdb")}
+                for m in items[:limit]]
+
+    async def jellyfin(client):
+        if not config.jellyfin_configured():
+            return []
+        r = await client.get(f"{config.S.jellyfin_url}/Items", headers={"Authorization": f'MediaBrowser Token="{config.S.jellyfin_api_key}"'},
+                             params={"IncludeItemTypes": "Movie", "Recursive": "true", "SortBy": "DateCreated",
+                                     "SortOrder": "Descending", "Limit": limit, "Fields": "ProviderIds,ProductionYear"})
+        r.raise_for_status()
+        return [{"source": "jellyfin", "item_id": i["Id"], "media_id": i["Id"], "title": i.get("Name"),
+                 "year": i.get("ProductionYear"),
+                 "imdb_id": _provider_ids(i).get("imdb"), "tmdb_id": _provider_ids(i).get("tmdb")}
+                for i in r.json().get("Items") or [] if i.get("Name")]
+
+    async with httpx.AsyncClient(timeout=8, verify=config.S.verify_ssl) as client:
+        results = await asyncio.gather(plex(client), jellyfin(client), return_exceptions=True)
+    movies = []
+    for result in results:
+        if isinstance(result, Exception):
+            log.warning("Recently added lookup failed: %s", result)
+        else:
+            movies.extend(result)
+    return movies[:limit]
+
+
 async def fetch_image(source: str, item_id: str, kind: str) -> tuple[bytes, str] | None:
     """Proxy artwork so the browser never sees server tokens."""
     if not SAFE_ID.match(item_id) or kind not in ("poster", "backdrop"):

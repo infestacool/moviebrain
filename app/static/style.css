@@ -259,6 +259,23 @@ body.screen-controls-on .screen-controls { opacity: 1; pointer-events: auto; tra
 .screen-controls button.wide { font-size: 15px; padding: 0 18px; }
 .screen-note { flex-basis: 100%; text-align: center; margin: 2px 0 0; font-size: 12px; color: var(--muted); }
 
+/* Search suggestions and recently added, shown when nothing is playing */
+.search-box { position: relative; flex: 1; min-width: 0; }
+.search-box input { width: 100%; }
+.suggestions {
+  position: absolute; z-index: 6; top: calc(100% + 6px); left: 0; right: 0; margin: 0; padding: 6px; list-style: none;
+  text-align: left; background: #1d2028; border: 1px solid var(--surface-2); border-radius: 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .5); max-height: 60vh; overflow-y: auto;
+}
+.suggestions li { padding: 9px 10px; border-radius: 8px; cursor: pointer; }
+.suggestions li[aria-selected="true"], .suggestions li:hover { background: var(--surface-2); }
+.suggestions .s-title { font-weight: 600; }
+.suggestions .s-meta { display: block; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recent { max-width: 900px; margin: 40px auto 0; text-align: left; }
+.recent-title { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+.recent .shelf-item { cursor: pointer; }
+.recent .shelf-item:hover .cover { outline: 2px solid var(--accent); }
+
 /* Cast */
 .cast-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
 .cast-card {

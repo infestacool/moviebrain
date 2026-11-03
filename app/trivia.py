@@ -313,6 +313,29 @@ async def _imdb_items(key: str, imdb_id: str, kind: str) -> list[dict]:
     return _store(key, items)
 
 
+# --- Search suggestions ---------------------------------------------------
+
+SUGGEST_KINDS = {"movie": "movie", "tvMovie": "movie", "tvSeries": "tv", "tvMiniSeries": "tv"}
+
+
+async def suggest(query: str) -> list[dict]:
+    """Popular movies and shows matching what's typed, from IMDb's search-box feed."""
+    slug = re.sub(r"[^a-z0-9 ]", "", query.lower()).strip()[:40]
+    if len(slug) < 2 or not config.S.include_imdb:
+        return []
+    key = f"suggest:{slug}"
+    if (hit := _cached(key)) is not None:
+        return hit
+    async with _client() as client:
+        r = await client.get(f"https://v3.sg.media-imdb.com/suggestion/x/{slug}.json")
+        r.raise_for_status()
+    results = [{
+        "imdb_id": d["id"], "title": d.get("l"), "year": d.get("y"),
+        "kind": SUGGEST_KINDS[d["qid"]], "stars": d.get("s"),
+    } for d in r.json().get("d", []) if d.get("qid") in SUGGEST_KINDS and IMDB_ID.match(d.get("id", ""))]
+    return _store(key, results[:8], ttl=3600)
+
+
 # --- OMDb (optional, needs a free API key) ---------------------------------
 
 class OmdbError(Exception):
@@ -502,12 +525,12 @@ async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None
         if episode_imdb:
             tasks.append((name, "episode", imdb_items(episode_imdb, imdb_kind)))
         if ids["imdb_id"]:
-            tasks.append((name, "series" if is_tv else None, imdb_items(ids["imdb_id"], imdb_kind)))
+            tasks.append((name, "series" if is_tv and episode else None, imdb_items(ids["imdb_id"], imdb_kind)))
     if config.S.omdb_api_key and config.S.include_omdb:
         if episode_imdb:
             tasks.append(("omdb", "episode", omdb(episode_imdb)))
         if ids["imdb_id"]:
-            tasks.append(("omdb", "series" if is_tv else None, omdb(ids["imdb_id"])))
+            tasks.append(("omdb", "series" if is_tv and episode else None, omdb(ids["imdb_id"])))
     if ids["wiki_title"] and config.S.include_wikipedia:
         tasks.append(("wikipedia", None, wikipedia(ids["wiki_title"])))
     if episode_imdb and config.S.include_wikipedia:
