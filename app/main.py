@@ -133,12 +133,12 @@ async def get_cast(source: str, item: str, show: Optional[str] = None,
                    year: Optional[int] = None, kind: str = "movie", ep_imdb: Optional[str] = None,
                    season: Optional[int] = None, episode: Optional[int] = None):
     cast = await people.cast(source, item, show)
-    try:  # the title's IMDb credits say who has died
+    try:  # the title's IMDb credits say who has died or won an EGOT award
         ids = await trivia.resolve(imdb, tmdb, title, year, "tv" if kind == "tv" else "movie")
         series = ids.get("imdb_id")
         if ep_imdb is None and series and season is not None:
             ep_imdb = await trivia.imdb_episode_id(series, season, episode)
-        cast = await people.mark_deaths(cast, [series, ep_imdb] if kind == "tv" else [series])
+        cast = await people.mark_cast(cast, [series, ep_imdb] if kind == "tv" else [series])
     except Exception as e:
         log.warning("Couldn't check the cast against IMDb: %s", e)
     return {"cast": cast}

@@ -515,8 +515,16 @@ button.primary { background: var(--accent); color: var(--accent-text); font-weig
   .pill-toggle { width: 34px; padding: 0; justify-content: center; }
   .icon-link { font-size: 20px; }
 }
-.grave { margin-left: 6px; font-size: .9em; cursor: help; }
-.cast-card .grave { margin-left: auto; padding-left: 8px; font-size: 18px; }
+.grave, .trophy { margin-left: 6px; font-size: .9em; }
+.grave { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ctext x='2' y='26' font-size='26'%3E%F0%9F%92%80%3C/text%3E%3C/svg%3E") 16 16, pointer; }
+.cast-card .badges { margin-left: auto; padding-left: 8px; display: flex; gap: 4px; font-size: 18px; flex: none; }
+.cast-card .badges > span { margin-left: 0; }
+.tip { position: relative; outline: none; }
+.tip:hover::after, .tip:focus-visible::after {
+  content: attr(data-tip); position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; pointer-events: none;
+  white-space: nowrap; padding: 5px 9px; border-radius: 8px; font-size: 12px; font-weight: 600; line-height: 1.2;
+  background: var(--text); color: var(--bg);
+}
 .avatar.deceased img { filter: grayscale(1); }
 .person-facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 20px 0 0; font-size: 14px; }
 .person-facts dt { color: var(--muted); }

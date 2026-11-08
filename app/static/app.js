@@ -719,8 +719,20 @@ async function loadCast(session, key, movie) {
   renderCast();
 }
 
-function grave(died) {
-  return el("span", { className: "grave", title: `Died ${died}`, role: "img", ariaLabel: `died ${died}` }, "🪦");
+// A small icon with a tooltip that shows straight away (title= tooltips take a second or two).
+function badge(icon, className, tip) {
+  const b = el("span", { className: `${className} tip`, role: "img", ariaLabel: tip, tabIndex: 0 }, icon);
+  b.dataset.tip = tip;
+  return b;
+}
+const grave = (died) => badge("🪦", "grave", `Died ${died}`);
+function trophy(egot) {
+  const list = egot.length > 1 ? egot.slice(0, -1).join(", ") + " and " + egot.at(-1) : egot[0];
+  return badge("🏆", "trophy", egot.length === 4 ? `EGOT: won an ${list}` : `Won ${/^[EO]/.test(list) ? "an" : "a"} ${list}`);
+}
+// Trophy then gravestone, for whoever has either.
+function personBadges(p) {
+  return [p.egot && p.egot.length && trophy(p.egot), p.died && grave(p.died)].filter(Boolean);
 }
 
 function renderCast() {
@@ -734,7 +746,12 @@ function renderCast() {
     if (p.role) who.append(el("span", { className: "role" }, p.role));
     if (p.guest) who.append(el("span", { className: "tag" }, "Guest star"));
     card.append(avatar(p), who);
-    if (p.died) card.append(grave(p.died));
+    const badges = personBadges(p);
+    if (badges.length) {
+      const box = el("span", { className: "badges" });
+      box.append(...badges);
+      card.append(box);
+    }
     card.onclick = () => openPerson(p);
     return card;
   }));
@@ -747,7 +764,7 @@ async function openPerson(p) {
   $("person-photo").replaceWith(Object.assign(avatar(p, "avatar large"), { id: "person-photo" }));
   $("person-name").textContent = p.name;
   $("person-name").dataset.who = p.name;
-  if (p.died) $("person-name").append(grave(p.died));
+  $("person-name").append(...personBadges(p));
   $("person-meta").textContent = p.role ? `${p.role} in ${session.title}` : "";
   $("person-body").replaceChildren(el("p", { className: "loading" }, "Looking them up…"));
   if (dialog.showModal) dialog.showModal(); else dialog.setAttribute("open", "");

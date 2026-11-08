@@ -93,15 +93,34 @@ async def cast(source: str, item_id: str, show_id: str | None = None) -> list[di
     return trivia._store(key, people[:MAX_CAST], ttl=LIBRARY_MINUTES * 60)
 
 
-# --- Who has died, from IMDb's credits ---------------------------------------
+# --- Who has died, and who has won an EGOT award ---------------------------
+
+# IMDb events for the Oscars, Primetime Emmys and Grammys. IMDb doesn't list the Tonys; Wikidata does.
+EGOT_EVENTS = {"ev0000223": "Emmy", "ev0000301": "Grammy", "ev0000003": "Oscar"}
+EGOT_ORDER = ("Emmy", "Grammy", "Oscar", "Tony")
 
 CREDITS_QUERY = """
 query Credits($id: ID!) {
   title(id: $id) {
     credits(first: 250, filter: {categories: ["actor", "actress"]}) {
-      edges { node { name { nameText { text } deathDate { displayableProperty { value { plainText } } } } } }
+      edges { node { name {
+        id
+        nameText { text }
+        deathDate { displayableProperty { value { plainText } } }
+        awardNominations(first: 20, filter: {wins: WINS_ONLY, events: ["ev0000223", "ev0000301", "ev0000003"]}) {
+          edges { node { award { event { id } } } }
+        }
+      } } }
     }
   }
+}
+"""
+
+TONY_QUERY = """
+SELECT DISTINCT ?imdb WHERE {
+  VALUES ?imdb { %s }
+  ?person wdt:P345 ?imdb; wdt:P166 ?award.
+  ?award rdfs:label ?label. FILTER(LANG(?label) = "en" && CONTAINS(?label, "Tony Award"))
 }
 """
 
@@ -111,9 +130,20 @@ def _name_key(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", plain.lower())
 
 
-async def _deaths(imdb_id: str) -> dict[str, str]:
-    """{name key: date of death} for a title's cast."""
-    key = f"imdb:deaths:{imdb_id}"
+async def _tony_winners(name_ids: list[str]) -> set[str]:
+    ids = [i for i in name_ids if NAME_ID.match(i)]
+    if not ids:
+        return set()
+    async with trivia._client() as client:
+        r = await trivia._get(client, "https://query.wikidata.org/sparql",
+                              params={"query": TONY_QUERY % " ".join(f'"{i}"' for i in ids)},
+                              headers={"Accept": "application/sparql-results+json"})
+    return {b["imdb"]["value"] for b in r.json()["results"]["bindings"]}
+
+
+async def _cast_facts(imdb_id: str) -> dict[str, dict]:
+    """{name key: {"died", "egot"}} for a title's cast, for those with something to show."""
+    key = f"imdb:castfacts:{imdb_id}"
     if (hit := trivia._cached(key)) is not None:
         return hit
     async with trivia._client() as client:
@@ -122,27 +152,35 @@ async def _deaths(imdb_id: str) -> dict[str, str]:
             headers={"x-imdb-client-name": "imdb-web-next", "content-type": "application/json"},
         )
         r.raise_for_status()
-    deaths = {}
+    people = {}
     for edge in ((trivia.graphql_data(r).get("title") or {}).get("credits") or {}).get("edges") or []:
         name = (edge.get("node") or {}).get("name") or {}
         died = (((name.get("deathDate") or {}).get("displayableProperty") or {}).get("value") or {}).get("plainText")
-        if died:
-            deaths[_name_key((name.get("nameText") or {}).get("text"))] = died
-    return trivia._store(key, deaths)
+        won = {EGOT_EVENTS.get((((e.get("node") or {}).get("award") or {}).get("event") or {}).get("id"))
+               for e in (name.get("awardNominations") or {}).get("edges") or []} - {None}
+        people[_name_key((name.get("nameText") or {}).get("text"))] = {"id": name.get("id"), "died": died, "won": won}
+    try:
+        for nm in await _tony_winners([p["id"] for p in people.values() if p["id"]]):
+            next(p for p in people.values() if p["id"] == nm)["won"].add("Tony")
+    except Exception as e:  # Wikidata is a nicety here
+        log.warning("Wikidata Tony lookup failed: %s", e)
+    facts = {k: {"died": p["died"], "egot": [a for a in EGOT_ORDER if a in p["won"]]}
+             for k, p in people.items() if p["died"] or p["won"]}
+    return trivia._store(key, facts)
 
 
-async def mark_deaths(people: list[dict], imdb_ids: list[str]) -> list[dict]:
-    """Add "died" to each cast member IMDb lists as dead, using the titles' credits."""
+async def mark_cast(people: list[dict], imdb_ids: list[str]) -> list[dict]:
+    """Add "died" and "egot" (EGOT awards won) to each cast member, from the titles' IMDb credits."""
     ids = [i for i in imdb_ids if i and trivia.IMDB_ID.match(i)]
     if not (people and ids and config.S.include_imdb):
         return people
-    deaths: dict[str, str] = {}
-    for result in await asyncio.gather(*(_deaths(i) for i in ids), return_exceptions=True):
+    facts: dict[str, dict] = {}
+    for result in await asyncio.gather(*(_cast_facts(i) for i in ids), return_exceptions=True):
         if isinstance(result, Exception):
             log.warning("IMDb credits lookup failed: %s", result)
         else:
-            deaths.update(result)
-    return [{**p, "died": deaths.get(_name_key(p["name"]))} for p in people]
+            facts.update(result)
+    return [{**p, **facts.get(_name_key(p["name"]), {})} for p in people]
 
 
 # --- Where else they appear in your library ---------------------------------
