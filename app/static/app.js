@@ -633,7 +633,7 @@ function initials(name) {
 }
 
 function avatar(person, className = "avatar") {
-  const box = el("div", { className });
+  const box = el("div", { className: className + (person.died ? " deceased" : "") });
   if (person.photo) {
     const img = el("img", { src: person.photo, alt: "", loading: "lazy" });
     img.onerror = () => box.replaceChildren(initials(person.name));
@@ -690,10 +690,10 @@ function renderCast() {
     const card = el("button", { className: "cast-card" });
     const who = el("span", { className: "who" });
     who.append(el("span", { className: "name" }, p.name));
-    if (p.died) who.querySelector(".name").append(grave(p.died));
     if (p.role) who.append(el("span", { className: "role" }, p.role));
     if (p.guest) who.append(el("span", { className: "tag" }, "Guest star"));
     card.append(avatar(p), who);
+    if (p.died) card.append(grave(p.died));
     card.onclick = () => openPerson(p);
     return card;
   }));
@@ -725,7 +725,10 @@ async function openPerson(p) {
 function renderPerson(p, data, session) {
   const parts = [];
   const about = data.imdb;
-  if (about && about.died && !p.died) $("person-name").append(grave(about.died));
+  if (about && about.died && !p.died) {
+    $("person-name").append(grave(about.died));
+    $("person-photo").classList.add("deceased");
+  }
   if (about && (about.born || about.died)) {
     $("person-meta").textContent = [p.role && `${p.role} in ${session.title}`,
       about.born && `Born ${about.born}`, about.died && `died ${about.died}`].filter(Boolean).join(" · ");

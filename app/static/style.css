@@ -502,3 +502,5 @@ button.primary { background: var(--accent); color: var(--accent-text); font-weig
   .icon-link { font-size: 20px; }
 }
 .grave { margin-left: 6px; font-size: .9em; cursor: help; }
+.cast-card .grave { margin-left: auto; padding-left: 8px; font-size: 18px; }
+.avatar.deceased img { filter: grayscale(1); }
