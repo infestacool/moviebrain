@@ -6,7 +6,7 @@ Trivia for whatever's playing on **Plex** or **Jellyfin**: IMDb trivia and goofs
 
 <p align="center">
   <img src="docs/screenshots/phone-spotlight.jpg" width="250" alt="Spotlight: one fact at a time, with poster and ratings">
-  <img src="docs/screenshots/phone-tv.jpg" width="250" alt="A TV episode with the Episode/Series toggle">
+  <img src="docs/screenshots/phone-tv.jpg" width="250" alt="One Step Beyond, a TV episode, with the Episode/Series toggle">
   <img src="docs/screenshots/phone-spoilers.jpg" width="250" alt="Trivia list with a blurred spoiler">
 </p>
 <p align="center">
@@ -14,7 +14,7 @@ Trivia for whatever's playing on **Plex** or **Jellyfin**: IMDb trivia and goofs
   <img src="docs/screenshots/phone-person.jpg" width="250" alt="An actor's other titles in your library">
   <img src="docs/screenshots/settings-sources.jpg" width="250" alt="Settings: sources">
 </p>
-<p align="center"><sub>Screenshots: public-domain film and poster, made-up users, placeholder fact text.</sub></p>
+<p align="center"><sub>Screenshots from the <a href="https://infestacool.github.io/moviebrain/">demo</a>: public-domain titles, made-up users.</sub></p>
 
 ## Features
 
