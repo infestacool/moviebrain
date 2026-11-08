@@ -102,6 +102,7 @@ function render() {
   $("empty").hidden = !!movie;
   $("movie").hidden = !movie;
   $("back-to-playing").hidden = !state.manual;
+  $("now-playing").hidden = !(state.manual && state.sessions.length);
 
   if (!movie) {
     setBackdrop(null);
@@ -1070,9 +1071,10 @@ async function loadPick(another = false) {
 }
 $("pick-another").onclick = () => loadPick(true);
 
-$("back-to-playing").onclick = () => {
+$("back-to-playing").onclick = $("now-playing").onclick = () => {
   state.manual = null;
   state.triviaFor = null;
+  window.scrollTo(0, 0);
   render();
 };
 

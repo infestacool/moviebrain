@@ -61,6 +61,12 @@ button.brand:hover { background: var(--surface); }
 .brand-search { color: var(--muted); margin-left: 4px; vertical-align: -1px; }
 button.brand:hover .brand-search { color: var(--accent); }
 
+.now-playing {
+  display: inline-flex; align-items: center; gap: 5px; height: 34px; padding: 0 12px 0 9px; border-radius: 17px; cursor: pointer;
+  border: 0; background: var(--accent); color: var(--accent-text); font: inherit; font-size: 13px; font-weight: 700; white-space: nowrap;
+}
+.now-playing svg { width: 15px; height: 15px; fill: currentColor; }
+.now-playing[hidden] { display: none; }
 .pill-toggle {
   display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 17px;
   border: 1.5px solid var(--surface-2); color: var(--muted); font-size: 14px; font-weight: 600; cursor: pointer;

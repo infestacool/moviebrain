@@ -20,6 +20,9 @@
   <header class="topbar">
     <button id="brand" class="brand" type="button" title="Look up a movie or show" aria-label="Moviebrain: look up a movie or show">🧠 Moviebrain <svg class="brand-search" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M15.5 15.5 21 21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
     <div class="actions">
+      <button id="now-playing" class="now-playing" type="button" title="Back to what's playing" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg><span class="np-label">Now playing</span>
+      </button>
       <div id="tv-view" class="segmented" role="radiogroup" aria-label="Show facts about" hidden>
         <button role="radio" data-view="episode" aria-checked="true">Episode</button>
         <button role="radio" data-view="series" aria-checked="false">Series</button>
