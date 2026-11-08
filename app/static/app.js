@@ -728,7 +728,7 @@ function badge(icon, className, tip) {
 const grave = (died) => badge("🪦", "grave", `Died ${died}`);
 function trophy(egot) {
   const list = egot.length > 1 ? egot.slice(0, -1).join(", ") + " and " + egot.at(-1) : egot[0];
-  return badge("🏆", "trophy", egot.length === 4 ? `EGOT: won an ${list}` : `Won ${/^[EO]/.test(list) ? "an" : "a"} ${list}`);
+  return badge("🏆", egot.length === 4 ? "trophy egot" : "trophy", egot.length === 4 ? `EGOT: won an ${list}` : `Won ${/^[EO]/.test(list) ? "an" : "a"} ${list}`);
 }
 // Trophy then gravestone, for whoever has either.
 function personBadges(p) {
