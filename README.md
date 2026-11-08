@@ -24,7 +24,7 @@ Trivia for whatever's playing on **Plex** or **Jellyfin**: IMDb trivia and goofs
 - **Cast**: tap an actor to see their other titles **in your library**, plus their bio, awards, birthplace and more. 🏆 marks Emmy, Grammy, Oscar or Tony winners; 🪦 marks actors who have died.
 - **TV**: facts for the episode on screen, or toggle to the whole series.
 - **Nothing playing?** Tonight's pick: an unwatched movie from your library with a teaser fact. Or pick from recently added, or search with suggestions. Tap **Moviebrain** at the top (or press `/`) to look up something else anytime.
-- **Content warnings**: a blurred ⚠ alert when IMDb (or optionally [DoesTheDogDie.com](https://www.doesthedogdie.com)) flags sexual assault, self-harm, suicide, or animals or children being hurt, plus any topics you add in Settings. Facts that mention them and actors' causes of death are blurred too.
+- **Content warnings**: a blurred ⚠ alert when IMDb (or optionally [DoesTheDogDie.com](https://www.doesthedogdie.com)) flags sexual assault, self-harm, suicide, or animals or children being hurt, plus any topics you add in Settings. Facts that mention them are blurred too, and so are actors' causes of death when they do (e.g. suicide).
 - **Parents guide**: the age rating, opening IMDb's Parents Guide with severity bars and notes.
 - **Ratings & awards** (optional OMDb key).
 - **Settings page** that saves as you go; choose sources, sections and goof kinds.
@@ -80,7 +80,7 @@ All optional; anything you change on the Settings page wins.
 | `OMDB_API_KEY` | | Ratings & awards |
 | `INCLUDE_IMDB`, `INCLUDE_GOOFS`, `INCLUDE_WIKIPEDIA`, `INCLUDE_OMDB`, `INCLUDE_WARNINGS` | `true` | Sources and content warnings |
 | `WARNING_TOPICS` | the five above | Comma-separated content warning topics; any word or phrase |
-| `BLUR_SENSITIVE_FACTS`, `BLUR_DEATH_CAUSES` | `true` | Blur facts on warning topics, and causes of death |
+| `BLUR_SENSITIVE_FACTS`, `BLUR_DEATH_CAUSES` | `true` | Blur facts, and causes of death, that mention a warning topic |
 | `INCLUDE_DTDD`, `DTDD_API_KEY` | `false`, | DoesTheDogDie.com warnings (free key, personal use) |
 | `USERS` | | Only show these users' viewing |
 | `WIKI_LANG` | `en` | Wikipedia language code |

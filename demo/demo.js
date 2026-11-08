@@ -184,9 +184,9 @@
       scopes: { episode: settings.tv_episode_facts, series: settings.tv_series_facts },
       wiki: Object.fromEntries(GROUPS.wiki.map(([k]) => [k, !hiddenWiki.includes(k)])),
       goofs: Object.fromEntries(GROUPS.goofs.map(([k]) => [k, !hiddenGoofs.includes(k)])),
-      blur: { facts: settings.include_warnings && settings.blur_sensitive_facts, death_causes: settings.blur_death_causes },
+      blur: { facts: settings.include_warnings && settings.blur_sensitive_facts, death_causes: settings.include_warnings && settings.blur_death_causes },
       topics: topicList(),
-      sensitive: settings.include_warnings && settings.blur_sensitive_facts ? topicList().map(topicPattern) : [],
+      sensitive: settings.include_warnings && (settings.blur_sensitive_facts || settings.blur_death_causes) ? topicList().map(topicPattern) : [],
     };
   }
   const DEFAULT_TOPICS = ["Sexual assault", "Self-harm", "Suicide", "Animal harm", "Child harm"];

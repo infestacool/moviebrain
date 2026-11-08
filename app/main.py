@@ -156,7 +156,8 @@ async def get_person(source: str, id: str, name: str):
 async def display():
     choices = config.display_choices()
     # Patterns for blurring facts that mention the warning topics (they work as JavaScript regexes too).
-    choices["sensitive"] = [list(t) for t in trivia.topic_patterns()] if choices["blur"]["facts"] else []
+    blur = choices["blur"]
+    choices["sensitive"] = [list(t) for t in trivia.topic_patterns()] if blur["facts"] or blur["death_causes"] else []
     return choices
 
 

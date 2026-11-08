@@ -339,9 +339,13 @@ async function loadDisplayChoices() {
   applyTvView();
 }
 
-// Warning topics a piece of text mentions, when Settings blurs sensitive facts.
-function sensitiveIn(text) {
+// Warning topics a piece of text mentions.
+function topicsIn(text) {
   return (state.sensitive || []).filter(([, kw, note]) => kw.test(text) || note.test(text)).map(([name]) => name);
+}
+// The same, for facts, when Settings blurs them.
+function sensitiveIn(text) {
+  return state.filters.blur && state.filters.blur.facts ? topicsIn(text) : [];
 }
 
 // A blurred block that reveals itself when tapped.
@@ -916,7 +920,8 @@ function renderPerson(p, data, session) {
       const dl = el("dl", { className: "person-facts" });
       for (const [k, v] of rows) {
         const dd = el("dd", {}, v);
-        if (k === "Cause of death" && state.filters.blur && state.filters.blur.death_causes) blurred(dd, "Tap to reveal");
+        // Only a cause of death that mentions a warning topic ("suicide") is blurred.
+        if (k === "Cause of death" && state.filters.blur && state.filters.blur.death_causes && topicsIn(v).length) blurred(dd, "Tap to reveal");
         dl.append(el("dt", {}, k), dd);
       }
       parts.push(dl);
