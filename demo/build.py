@@ -6,6 +6,7 @@ The pages and scripts are the real ones; demo.js answers their /api requests wit
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import shutil
@@ -16,6 +17,9 @@ ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "app" / "static"
 DEMO = ROOT / "demo"
 REPO = "https://github.com/infestacool/moviebrain"
+
+VERSION = hashlib.sha1(b"".join(f.read_bytes() for f in sorted([*STATIC.rglob("*.js"), *STATIC.rglob("*.css"),
+                                                                *DEMO.glob("*.js"), *DEMO.glob("*.css")]))).hexdigest()[:10]
 
 BANNER = f"""<div class="demo-banner">
   <span>🧠 <b>Moviebrain demo</b> · sample data, public-domain titles</span>
@@ -33,7 +37,8 @@ def page(name: str, script: str) -> str:
     html = html.replace(f'<script src="static/{script}"></script>',
                         f'<script src="static/demo/demo.js"></script>\n  <script src="static/{script}"></script>', 1)
     assert "static/demo/demo.js" in html, f"couldn't add demo.js to {name}"
-    return html
+    # Version the script and style links, so browsers fetch new ones after each deploy.
+    return re.sub(r'"(static/[\w./-]+\.(?:js|css))"', lambda m: f'"{m[1]}?v={VERSION}"', html)
 
 
 def main(out: Path) -> None:
