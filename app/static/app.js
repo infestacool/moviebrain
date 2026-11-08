@@ -730,6 +730,13 @@ function trophy(egot) {
   const list = egot.length > 1 ? egot.slice(0, -1).join(", ") + " and " + egot.at(-1) : egot[0];
   return badge("🏆", egot.length === 4 ? "trophy egot" : "trophy", egot.length === 4 ? `EGOT: won an ${list}` : `Won ${/^[EO]/.test(list) ? "an" : "a"} ${list}`);
 }
+// "EGOT winner", "Oscar winner", "Oscar & Tony winner"…
+function awardsNote(egot) {
+  if (!egot || !egot.length) return null;
+  if (egot.length === 4) return "EGOT winner";
+  return (egot.length > 1 ? egot.slice(0, -1).join(", ") + " & " + egot.at(-1) : egot[0]) + " winner";
+}
+
 // Trophy then gravestone, for whoever has either.
 function personBadges(p) {
   return [p.egot && p.egot.length && trophy(p.egot), p.died && grave(p.died)].filter(Boolean);
@@ -744,6 +751,9 @@ function renderCast() {
     const who = el("span", { className: "who" });
     who.append(el("span", { className: "name" }, p.name));
     if (p.role) who.append(el("span", { className: "role" }, p.role));
+    for (const note of [awardsNote(p.egot), p.died && `Died ${p.died}`].filter(Boolean)) {
+      who.append(el("span", { className: "notes" }, note));
+    }
     if (p.guest) who.append(el("span", { className: "tag" }, "Guest star"));
     card.append(avatar(p), who);
     const badges = personBadges(p);
