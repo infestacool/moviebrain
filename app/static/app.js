@@ -102,6 +102,7 @@ function render() {
     const c = (state.serverInfo && state.serverInfo.configured) || {};
     $("setup-link").hidden = !!(c.plex || c.jellyfin) || !state.isAdmin;
     loadRecent();
+    loadPick();
     renderScreen();
     return;
   }
@@ -923,6 +924,34 @@ async function loadRecent() {
     $("recent").hidden = true;
   }
 }
+
+let pickLoadedAt = 0;
+async function loadPick(another = false) {
+  if (!another && Date.now() - pickLoadedAt < 5 * 60 * 1000) return;
+  pickLoadedAt = Date.now();
+  const btn = $("pick-another");
+  btn.disabled = true;
+  try {
+    const m = (await (await fetch("/api/pick" + (another ? "?another=1" : ""))).json()).movie;
+    $("pick").hidden = !m;
+    if (!m) return;
+    $("pick-title").textContent = m.title + (m.year ? ` (${m.year})` : "");
+    $("pick-cover-title").textContent = m.title;
+    $("pick-teaser").textContent = m.teaser || m.tagline || "";
+    $("pick-teaser").hidden = !(m.teaser || m.tagline);
+    $("pick-sub").textContent = `Unwatched on ${m.source === "plex" ? "Plex" : "Jellyfin"} · tap for trivia`;
+    const img = $("pick-poster");
+    img.hidden = false;
+    img.onerror = () => { img.hidden = true; };
+    img.src = imageUrl(m.source, m.item_id, "poster");
+    $("pick-open").onclick = () => lookUp({ ...m, kind: "movie" });
+  } catch {
+    $("pick").hidden = true;
+  } finally {
+    btn.disabled = false;
+  }
+}
+$("pick-another").onclick = () => loadPick(true);
 
 $("back-to-playing").onclick = () => {
   state.manual = null;

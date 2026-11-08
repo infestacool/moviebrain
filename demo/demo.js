@@ -151,6 +151,12 @@
     { source: "plex", item_id: "43", media_id: "43", title: "His Girl Friday", year: 1940, imdb_id: "tt0032599", tmdb_id: null },
     { source: "plex", item_id: "49", media_id: "49", title: "The General", year: 1926, imdb_id: "tt0017925", tmdb_id: null },
   ];
+  // Tonight's pick: "another" takes the next one.
+  const PICKS = [
+    { ...RECENT[1], tagline: null, teaser: "It's in the public domain because the studio left out a valid copyright notice." },
+    { ...RECENT[0], tagline: null, teaser: "It was shot in black and white around Pittsburgh on a very small budget." },
+  ];
+  let pickIndex = 0;
 
   // ---- Settings (kept in memory; nothing is saved in the demo) ---------------
 
@@ -218,6 +224,9 @@
       case "/api/cast": return { cast: (CAST[q.get("item")] || []).map(([id, name, role]) => ({ id, name, role, photo: null, guest: false })) };
       case "/api/person": return person(q);
       case "/api/recent": return { movies: RECENT };
+      case "/api/pick":
+        if (q.get("another")) pickIndex = (pickIndex + 1) % PICKS.length;
+        return { movie: PICKS[pickIndex] };
       case "/api/suggest": {
         const term = (q.get("q") || "").toLowerCase();
         return { results: CATALOG.filter((t) => t.title.toLowerCase().includes(term)) };

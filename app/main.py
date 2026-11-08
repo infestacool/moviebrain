@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 from typing import Optional
@@ -101,6 +102,29 @@ async def get_suggestions(q: str = ""):
 @app.get("/api/recent")
 async def get_recent():
     return {"movies": await media.recently_added()}
+
+
+_pick: dict = {}
+
+
+def _servers() -> tuple:
+    return (config.S.plex_url, config.S.jellyfin_url, config.S.users)
+
+
+def _evening() -> str:
+    """Tonight's date; the pick changes at 5am, not midnight."""
+    return (datetime.now() - timedelta(hours=5)).date().isoformat()
+
+
+@app.get("/api/pick")
+async def get_pick(another: bool = False):
+    """Tonight's pick: one unwatched movie from the library, the same for everyone until 5am."""
+    if another or _pick.get("night") != _evening() or _pick.get("servers") != _servers():
+        movie = await media.unwatched_movie()
+        if movie:
+            movie["teaser"] = await trivia.teaser(movie.get("imdb_id"))
+        _pick.update(night=_evening(), servers=_servers(), movie=movie)
+    return {"movie": _pick.get("movie")}
 
 
 @app.get("/api/cast")

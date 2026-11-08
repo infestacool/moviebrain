@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import re
 
 import httpx
@@ -245,6 +246,67 @@ async def recently_added(limit: int = 12) -> list[dict]:
         else:
             movies.extend(result)
     return movies[:limit]
+
+
+async def unwatched_movie() -> dict | None:
+    """A random movie nobody has watched yet, from one of the configured servers."""
+    async def plex(client):
+        headers = {"X-Plex-Token": config.S.plex_token, "Accept": "application/json"}
+        r = await client.get(f"{config.S.plex_url}/library/sections", headers=headers)
+        r.raise_for_status()
+        sections = [d["key"] for d in r.json().get("MediaContainer", {}).get("Directory") or [] if d.get("type") == "movie"]
+        random.shuffle(sections)
+        for key in sections:
+            url = f"{config.S.plex_url}/library/sections/{key}/all"
+            params = {"type": 1, "unwatched": 1, "includeGuids": 1}
+            r = await client.get(url, params=params, headers={**headers, "X-Plex-Container-Start": "0", "X-Plex-Container-Size": "0"})
+            r.raise_for_status()
+            total = int(r.json().get("MediaContainer", {}).get("totalSize") or 0)
+            if not total:
+                continue
+            r = await client.get(url, params=params, headers={
+                **headers, "X-Plex-Container-Start": str(random.randrange(total)), "X-Plex-Container-Size": "1"})
+            r.raise_for_status()
+            for m in r.json().get("MediaContainer", {}).get("Metadata") or []:
+                ids = _parse_guids(m.get("Guid"))
+                return {"source": "plex", "item_id": str(m["ratingKey"]), "media_id": str(m["ratingKey"]),
+                        "title": m.get("title"), "year": m.get("year"), "tagline": m.get("tagline"),
+                        "imdb_id": ids.get("imdb"), "tmdb_id": ids.get("tmdb")}
+        return None
+
+    async def jellyfin(client):
+        # "Watched" is per user in Jellyfin: use the first user in USERS, else the first admin.
+        headers = {"Authorization": f'MediaBrowser Token="{config.S.jellyfin_api_key}"'}
+        r = await client.get(f"{config.S.jellyfin_url}/Users", headers=headers)
+        r.raise_for_status()
+        users = r.json() or []
+        wanted = config.csv(config.S.users)
+        user = next((u for u in users if (u.get("Name") or "").lower() in wanted), None) if wanted else None
+        user = user or next((u for u in users if (u.get("Policy") or {}).get("IsAdministrator")), None) or (users or [None])[0]
+        if not user or not SAFE_ID.match(user.get("Id", "")):
+            return None
+        r = await client.get(f"{config.S.jellyfin_url}/Users/{user['Id']}/Items", headers=headers, params={
+            "IncludeItemTypes": "Movie", "Recursive": "true", "IsPlayed": "false", "SortBy": "Random",
+            "Limit": 1, "Fields": "ProviderIds,ProductionYear,Taglines"})
+        r.raise_for_status()
+        for i in r.json().get("Items") or []:
+            return {"source": "jellyfin", "item_id": i["Id"], "media_id": i["Id"], "title": i.get("Name"),
+                    "year": i.get("ProductionYear"), "tagline": (i.get("Taglines") or [None])[0],
+                    "imdb_id": _provider_ids(i).get("imdb"), "tmdb_id": _provider_ids(i).get("tmdb")}
+        return None
+
+    servers = [f for ok, f in ((config.plex_configured(), plex), (config.jellyfin_configured(), jellyfin)) if ok]
+    random.shuffle(servers)
+    async with httpx.AsyncClient(timeout=8, verify=config.S.verify_ssl) as client:
+        for server in servers:
+            try:
+                movie = await server(client)
+            except (httpx.HTTPError, ValueError, KeyError) as e:
+                log.warning("Unwatched movie lookup failed: %s", e)
+                continue
+            if movie and movie.get("title"):
+                return movie
+    return None
 
 
 async def fetch_image(source: str, item_id: str, kind: str) -> tuple[bytes, str] | None:

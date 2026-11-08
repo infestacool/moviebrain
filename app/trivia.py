@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import random
 import re
 
 import httpx
@@ -294,6 +295,19 @@ async def _imdb_items(key: str, imdb_id: str, kind: str) -> list[dict]:
 
 
 # --- Search suggestions ---------------------------------------------------
+
+async def teaser(imdb_id: str | None) -> str | None:
+    """One short, spoiler-free fact to tempt you into watching."""
+    if not (config.S.include_imdb and imdb_id and IMDB_ID.match(imdb_id)):
+        return None
+    try:
+        items = await asyncio.wait_for(imdb_items(imdb_id, "trivia"), 8)
+    except Exception as e:  # a teaser is optional
+        log.warning("Teaser lookup failed: %s", e)
+        return None
+    short = [t["text"] for t in items if not t.get("spoiler") and 40 <= len(t.get("text") or "") <= 260]
+    return random.choice(short) if short else None
+
 
 SUGGEST_KINDS = {"movie": "movie", "tvMovie": "movie", "tvSeries": "tv", "tvMiniSeries": "tv"}
 
