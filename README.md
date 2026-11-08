@@ -102,4 +102,4 @@ Each push to `main` builds the image; the x86-64 build is started and checked be
 
 ## License
 
-[MIT](LICENSE). Not affiliated with IMDb, Plex, Jellyfin, Wikipedia or OMDb. Brain icon artwork: [Twemoji](https://github.com/jdecked/twemoji) (CC BY 4.0). Screenshot poster: *Charade* (1963), public domain via Wikimedia Commons.
+[MIT](LICENSE). Not affiliated with IMDb, Plex, Jellyfin, Wikipedia or OMDb. Brain icon artwork: [Twemoji](https://github.com/jdecked/twemoji) (CC BY 4.0). Screenshot and demo artwork: *Charade* (1963) and *Night of the Living Dead* (1968), public domain via Wikimedia Commons.

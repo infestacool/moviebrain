@@ -2,7 +2,7 @@
 // pages run on a static site (GitHub Pages) with no server, Plex or Jellyfin.
 //
 // Everything here is copyright-free: public-domain titles, facts written for this demo
-// in our own words, and a public-domain poster. Goofs are marked as made-up examples.
+// in our own words, and public-domain artwork. Goofs are marked as made-up examples.
 "use strict";
 
 (() => {
@@ -13,137 +13,140 @@
 
   // ---- Titles ---------------------------------------------------------------
 
-  const CHARADE = {
-    key: "plex:42:alex", source: "plex", kind: "movie", item_id: "42", media_id: "42",
-    title: "Charade", year: 1963, episode: null,
-    tagline: "You can expect the unexpected when they get together!",
-    imdb_id: "tt0056923", tmdb_id: null, user: "alex", device: "Living Room TV",
-    state: "playing", position_ms: 3060000, duration_ms: 6780000,
+  const NOTLD = {
+    key: "plex:48:alex", source: "plex", kind: "movie", item_id: "48", media_id: "48",
+    title: "Night of the Living Dead", year: 1968, episode: null, tagline: null,
+    imdb_id: "tt0063350", tmdb_id: null, user: "alex", device: "Living Room TV",
+    state: "playing", position_ms: 2460000, duration_ms: 5760000,
   };
-  const HILLBILLIES = {
-    key: "plex:78:jordan", source: "plex", kind: "episode", item_id: "77", media_id: "78",
-    title: "The Beverly Hillbillies", year: 1962, tagline: null,
-    episode: { title: "The Clampetts Strike Oil", season: 1, number: 1, imdb_id: "tt0522598" },
-    imdb_id: "tt0055662", tmdb_id: null, user: "jordan", device: "Bedroom TV",
-    state: "playing", position_ms: 1200000, duration_ms: 1560000,
+  const ONE_STEP = {
+    key: "plex:91:jordan", source: "plex", kind: "episode", item_id: "90", media_id: "91",
+    title: "One Step Beyond", year: 1959, tagline: null,
+    episode: { title: "The Bride Possessed", season: 1, number: 1, imdb_id: "tt0507807" },
+    imdb_id: "tt0052442", tmdb_id: null, user: "jordan", device: "Bedroom TV",
+    state: "playing", position_ms: 540000, duration_ms: 1500000,
   };
 
   const fact = (id, text, extra = {}) => ({ id, text, spoiler: false, category: "Uncategorized", interested: 0, voted: 0, ...extra });
-  const demoGoof = (id, category, text) => fact(id, `Demo example, not a real goof: ${text}`, { category });
+  const demoGoof = (id, category, text, extra = {}) => fact(id, `Demo example, not a real goof: ${text}`, { category, ...extra });
 
   const TRIVIA = {
-    tt0056923: {
+    tt0063350: {
       imdb: [
-        fact("c1", "Cary Grant and Audrey Hepburn made only one film together, and this is it."),
-        fact("c2", "Grant was in his late fifties during filming and worried about romancing a much younger co-star, so the script has Hepburn's character do the pursuing."),
-        fact("c3", "Henry Mancini wrote the score. The title song, with lyrics by Johnny Mercer, was nominated for the Academy Award for Best Original Song."),
-        fact("c4", "The film was released without a proper copyright notice, which is why it is in the public domain in the United States."),
-        fact("c5", "It opened shortly after President Kennedy was assassinated, and lines using the word \"assassinate\" were reportedly re-dubbed."),
-        fact("c6", "Much of it was shot on location in Paris, and the opening scenes at a ski resort in the French Alps."),
-        fact("c7", "The animated opening titles are by Maurice Binder, best known for the gun-barrel openings of the James Bond films."),
-        fact("c8", "It was remade in 2002 as The Truth About Charlie, directed by Jonathan Demme."),
-        fact("c9", "The man Regina knows by several names turns out to be a U.S. Treasury agent.", { spoiler: true }),
-        fact("c10", "In 2022 it was selected for preservation in the U.S. National Film Registry."),
+        fact("n1", "George A. Romero shot it in and around Pittsburgh, Pennsylvania, on a budget of roughly $114,000."),
+        fact("n2", "Its working title was Night of the Flesh Eaters. When the title changed, the copyright notice was left off the prints, which is why the film is in the public domain."),
+        fact("n3", "Romero said he cast Duane Jones as Ben simply because he gave the best audition."),
+        fact("n4", "The film never uses the word \"zombie\". The dead are called \"ghouls\"."),
+        fact("n5", "Chocolate syrup stood in for blood, which reads convincingly in black and white."),
+        fact("n6", "Many of the ghouls were played by Pittsburgh locals and friends of the filmmakers."),
+        fact("n7", "Karl Hardman and Marilyn Eastman, who play the Coopers, also helped produce the film and handled much of the makeup."),
+        fact("n8", "Ben survives the night, only to be shot by a posse that mistakes him for a ghoul.", { spoiler: true }),
+        fact("n9", "It was remade in 1990, directed by makeup artist Tom Savini."),
+        fact("n10", "In 1999 it was selected for preservation in the U.S. National Film Registry."),
       ],
       goofs: [
-        demoGoof("g1", "Continuity", "a coffee cup is full in one shot and empty in the next."),
-        demoGoof("g2", "Crew or equipment visible", "a boom microphone dips into the top of the frame."),
-        demoGoof("g3", "Factual errors", "a sign uses a spelling that wasn't in use at the time."),
+        demoGoof("ng1", "Continuity", "a boarded-up window has one plank fewer in the next shot."),
+        demoGoof("ng2", "Crew or equipment visible", "a light stand is reflected in a car window."),
+        demoGoof("ng3", "Revealing mistakes", "a ghoul blinks while lying still."),
       ],
       wikipedia: {
-        title: "Charade (1963 film)",
-        url: "https://en.wikipedia.org/wiki/Charade_(1963_film)",
-        intro: ["Charade is a 1963 American romantic comedy thriller directed by Stanley Donen and written by Peter Stone, starring Cary Grant and Audrey Hepburn. (Demo text written for Moviebrain; see the full article on Wikipedia.)"],
+        title: "Night of the Living Dead",
+        url: "https://en.wikipedia.org/wiki/Night_of_the_Living_Dead",
+        intro: ["Night of the Living Dead is a 1968 American independent horror film directed by George A. Romero and written by Romero and John A. Russo, starring Duane Jones and Judith O'Dea. (Demo text written for Moviebrain; see the full article on Wikipedia.)"],
         sections: [
-          { title: "Production", paragraphs: ["Stanley Donen produced as well as directed. Filming took place largely on location in Paris, with the opening scenes at a ski resort in the French Alps."] },
-          { title: "Music", paragraphs: ["Henry Mancini composed the score, and his title song with lyrics by Johnny Mercer earned an Academy Award nomination."] },
-          { title: "Legacy", paragraphs: ["Because it was released without a valid copyright notice, the film is in the public domain in the United States. It was remade in 2002 and added to the National Film Registry in 2022."] },
+          { title: "Production", paragraphs: ["The film was made by a small group of Pittsburgh filmmakers on a very low budget, shooting on black-and-white film with a cast of local actors and friends."] },
+          { title: "Release", paragraphs: ["It premiered in Pittsburgh in October 1968 and became a long-running hit on the midnight-movie circuit."] },
+          { title: "Legacy", paragraphs: ["It is widely credited with creating the modern zombie film. Romero followed it with Dawn of the Dead (1978), and the 1968 film was added to the National Film Registry in 1999."] },
         ],
       },
       omdb: [{
-        scope: null, type: "movie", ratings: [], imdb_votes: null,
-        awards: "Nominated for 1 Oscar. Won 1 BAFTA Award", box_office: null,
-        facts: ["Audrey Hepburn won the BAFTA Award for Best British Actress for this film.", "Directed by Stanley Donen; written by Peter Stone."],
+        scope: null, type: "movie", ratings: [], imdb_votes: null, awards: null, box_office: null,
+        facts: ["Released 1 Oct 1968 · 96 min.", "Directed by George A. Romero; written by John A. Russo and George A. Romero."],
       }],
     },
-    tt0055662: {
+    tt0052442: {
       imdb: [
-        fact("e1", "This is the pilot. It first aired on CBS on September 26, 1962.", { scope: "episode" }),
-        fact("e2", "Many first-season episodes, including this one, are in the public domain because their copyrights weren't renewed.", { scope: "episode" }),
-        fact("e3", "The episode sets up the whole series: oil is found on the Clampetts' land and the family moves to Beverly Hills.", { scope: "episode" }),
-        fact("s1", "The theme, \"The Ballad of Jed Clampett\", was performed by the bluegrass duo Flatt and Scruggs.", { scope: "series" }),
-        fact("s2", "The series ran for nine seasons on CBS, from 1962 to 1971.", { scope: "series" }),
-        fact("s3", "Buddy Ebsen, who plays Jed, had been cast as the Tin Man in The Wizard of Oz until a reaction to the makeup forced him out.", { scope: "series" }),
-        fact("s4", "It was created by Paul Henning, who went on to create Petticoat Junction and Green Acres.", { scope: "series" }),
+        fact("e1", "This is the series premiere, first broadcast on ABC on January 20, 1959.", { scope: "episode" }),
+        fact("e2", "Like most of the series, it is widely considered public domain because its copyright wasn't renewed.", { scope: "episode" }),
+        fact("e3", "John Newland introduces the story and returns at the end to talk about it.", { scope: "episode" }),
+        fact("s1", "Each episode dramatizes a story presented as a true account of the paranormal.", { scope: "series" }),
+        fact("s2", "John Newland hosted every episode and directed most of them.", { scope: "series" }),
+        fact("s3", "It aired on ABC from 1959 to 1961, sponsored by Alcoa, under the title Alcoa Presents: One Step Beyond.", { scope: "series" }),
+        fact("s4", "A revival, The Next Step Beyond, aired in 1978 with Newland back as host.", { scope: "series" }),
       ],
       goofs: [
-        { ...demoGoof("h1", "Continuity", "a hat changes hands between two shots."), scope: "episode" },
-        { ...demoGoof("h2", "Revealing mistakes", "a painted backdrop shows a seam."), scope: "series" },
+        demoGoof("og1", "Continuity", "a candle is taller in the close-up than in the wide shot.", { scope: "episode" }),
+        demoGoof("og2", "Revealing mistakes", "a painted backdrop shows a seam.", { scope: "series" }),
       ],
       wikipedia: {
-        title: "The Beverly Hillbillies",
-        url: "https://en.wikipedia.org/wiki/The_Beverly_Hillbillies",
-        intro: ["The Beverly Hillbillies is an American sitcom about a rural family who strike oil and move to Beverly Hills. It aired on CBS from 1962 to 1971. (Demo text written for Moviebrain; see the full article on Wikipedia.)"],
-        sections: [{ title: "Production", paragraphs: ["Paul Henning created the show, which was among the most-watched programs on American television in its early seasons."] }],
+        title: "One Step Beyond (TV series)",
+        url: "https://en.wikipedia.org/wiki/One_Step_Beyond_(TV_series)",
+        intro: ["One Step Beyond is an American anthology series of supposedly true stories of the paranormal, hosted by John Newland. It aired on ABC from 1959 to 1961. (Demo text written for Moviebrain; see the full article on Wikipedia.)"],
+        sections: [{ title: "Production", paragraphs: ["Each half-hour episode is introduced by Newland, who also directed most of the series."] }],
       },
       episode_wikipedia: null,
       omdb: [],
     },
+    tt0056923: {
+      imdb: [
+        fact("c1", "Cary Grant and Audrey Hepburn made only one film together, and this is it."),
+        fact("c2", "Henry Mancini wrote the score. The title song, with lyrics by Johnny Mercer, was nominated for the Academy Award for Best Original Song."),
+        fact("c3", "The film was released without a proper copyright notice, which is why it is in the public domain in the United States."),
+      ],
+      goofs: [], wikipedia: null, episode_wikipedia: null, omdb: [],
+    },
   };
 
   const OTHER = (title) => ({
-    imdb: [fact("o1", `The demo has full facts only for Charade and The Beverly Hillbillies. Install Moviebrain to see trivia for ${title || "anything"} in your own library.`)],
+    imdb: [fact("o1", `The demo has full facts only for Night of the Living Dead and One Step Beyond. Install Moviebrain to see trivia for ${title || "anything"} in your own library.`)],
     goofs: [], wikipedia: null, episode_wikipedia: null, omdb: [],
   });
 
   // ---- People ---------------------------------------------------------------
 
   const CAST = {
-    42: [
-      ["p1", "Cary Grant", "Peter Joshua"], ["p2", "Audrey Hepburn", "Regina Lampert"],
-      ["p3", "Walter Matthau", "Hamilton Bartholomew"], ["p4", "James Coburn", "Tex Panthollow"],
-      ["p5", "George Kennedy", "Herman Scobie"],
+    48: [
+      ["p1", "Duane Jones", "Ben"], ["p2", "Judith O'Dea", "Barbra"], ["p3", "Karl Hardman", "Harry Cooper"],
+      ["p4", "Marilyn Eastman", "Helen Cooper"], ["p5", "Keith Wayne", "Tom"], ["p6", "Judith Ridley", "Judy"],
+      ["p7", "Kyra Schon", "Karen Cooper"], ["p8", "Russell Streiner", "Johnny"],
     ],
-    78: [
-      ["p6", "Buddy Ebsen", "Jed Clampett"], ["p7", "Irene Ryan", "Granny"],
-      ["p8", "Donna Douglas", "Elly May Clampett"], ["p9", "Max Baer Jr.", "Jethro Bodine"],
-    ],
+    91: [["p9", "John Newland", "Host"]],
+    42: [["p10", "Cary Grant", "Peter Joshua"], ["p11", "Audrey Hepburn", "Regina Lampert"]],
   };
   const LIBRARY = {
+    "Charade": { item_id: "42", title: "Charade", year: 1963, kind: "movie", episodes: [] },
     "His Girl Friday": { item_id: "43", title: "His Girl Friday", year: 1940, kind: "movie", episodes: [] },
-    "Breakfast at Tiffany's": { item_id: "47", title: "Breakfast at Tiffany's", year: 1961, kind: "movie", episodes: [] },
-    "Roman Holiday": { item_id: "46", title: "Roman Holiday", year: 1953, kind: "movie", episodes: [] },
   };
   const PEOPLE = {
-    p1: { born: "January 18, 1904", died: "November 29, 1986", library: ["His Girl Friday"],
-      bio: "Born Archibald Leach in Bristol, England, he toured as an acrobat and stage performer before moving into films in the 1930s and becoming one of Hollywood's biggest stars.",
-      trivia: ["He starred in four films for Alfred Hitchcock, including North by Northwest.", "He received an honorary Academy Award in 1970."] },
-    p2: { born: "May 4, 1929", died: "January 20, 1993", library: ["Roman Holiday", "Breakfast at Tiffany's"],
-      bio: "A Belgian-born British actress, she won the Academy Award for Best Actress for Roman Holiday and later devoted much of her life to work for UNICEF.",
-      trivia: ["She is one of the few people to have won an Emmy, a Grammy, an Oscar and a Tony."] },
-    p3: { born: "October 1, 1920", died: "July 1, 2000", library: [], bio: "", trivia: ["He won the Academy Award for Best Supporting Actor for The Fortune Cookie (1966)."] },
-    p4: { born: "August 31, 1928", died: "November 18, 2002", library: [], bio: "", trivia: ["He won the Academy Award for Best Supporting Actor for Affliction (1997)."] },
-    p5: { born: "February 18, 1925", died: "February 28, 2016", library: [], bio: "", trivia: ["He won the Academy Award for Best Supporting Actor for Cool Hand Luke (1967)."] },
-    p6: { born: "April 2, 1908", died: "July 6, 2003", library: ["Breakfast at Tiffany's"], bio: "", trivia: ["He also played Doc Golightly in Breakfast at Tiffany's."] },
-    p7: { born: "October 17, 1902", died: "April 26, 1973", library: [], bio: "", trivia: [] },
-    p8: { born: "September 26, 1932", died: "January 1, 2015", library: [], bio: "", trivia: ["The pilot first aired on her 30th birthday."] },
-    p9: { born: "December 4, 1937", died: null, library: [], bio: "", trivia: [] },
+    p1: { born: "April 11, 1937", died: "July 22, 1988", library: [],
+      bio: "Ben was his first major film role. He worked mostly in theater afterwards, as an actor, teacher and director.",
+      trivia: ["Romero said he got the part simply by giving the best audition."] },
+    p2: { born: "April 20, 1945", died: null, library: [], bio: "", trivia: ["Johnny's teasing line to her in the cemetery became one of horror's most quoted."] },
+    p3: { born: "March 22, 1927", died: "September 22, 2007", library: [], bio: "", trivia: ["He also co-produced the film and helped with the makeup."] },
+    p4: { born: null, died: null, library: [], bio: "", trivia: ["She also helped with the film's makeup."] },
+    p5: { born: null, died: null, library: [], bio: "", trivia: [] },
+    p6: { born: null, died: null, library: [], bio: "", trivia: [] },
+    p7: { born: "October 4, 1957", died: null, library: [], bio: "", trivia: ["Her father, Karl Hardman, plays her on-screen father, Harry Cooper."] },
+    p8: { born: "February 6, 1940", died: null, library: [], bio: "", trivia: ["He was also one of the film's producers."] },
+    p9: { born: "November 23, 1917", died: "January 10, 2000", library: [], bio: "", trivia: ["He returned as host for the 1978 revival, The Next Step Beyond."] },
+    p10: { born: "January 18, 1904", died: "November 29, 1986", library: ["His Girl Friday"], bio: "", trivia: ["He starred in four films for Alfred Hitchcock."] },
+    p11: { born: "May 4, 1929", died: "January 20, 1993", library: [], bio: "", trivia: [] },
   };
 
   // ---- Search ---------------------------------------------------------------
 
   const CATALOG = [
-    { imdb_id: "tt0056923", title: "Charade", year: 1963, kind: "movie", stars: "Cary Grant, Audrey Hepburn" },
-    { imdb_id: "tt0055662", title: "The Beverly Hillbillies", year: 1962, kind: "tv", stars: "Buddy Ebsen, Irene Ryan" },
-    { imdb_id: "tt0032599", title: "His Girl Friday", year: 1940, kind: "movie", stars: "Cary Grant, Rosalind Russell" },
     { imdb_id: "tt0063350", title: "Night of the Living Dead", year: 1968, kind: "movie", stars: "Duane Jones, Judith O'Dea" },
+    { imdb_id: "tt0052442", title: "One Step Beyond", year: 1959, kind: "tv", stars: "John Newland" },
+    { imdb_id: "tt0056923", title: "Charade", year: 1963, kind: "movie", stars: "Cary Grant, Audrey Hepburn" },
+    { imdb_id: "tt0032599", title: "His Girl Friday", year: 1940, kind: "movie", stars: "Cary Grant, Rosalind Russell" },
     { imdb_id: "tt0017925", title: "The General", year: 1926, kind: "movie", stars: "Buster Keaton, Marion Mack" },
     { imdb_id: "tt0013442", title: "Nosferatu", year: 1922, kind: "movie", stars: "Max Schreck, Gustav von Wangenheim" },
   ];
   const RECENT = [
+    { source: "plex", item_id: "48", media_id: "48", title: "Night of the Living Dead", year: 1968, imdb_id: "tt0063350", tmdb_id: null },
     { source: "plex", item_id: "42", media_id: "42", title: "Charade", year: 1963, imdb_id: "tt0056923", tmdb_id: null },
     { source: "plex", item_id: "43", media_id: "43", title: "His Girl Friday", year: 1940, imdb_id: "tt0032599", tmdb_id: null },
-    { source: "plex", item_id: "48", media_id: "48", title: "Night of the Living Dead", year: 1968, imdb_id: "tt0063350", tmdb_id: null },
     { source: "plex", item_id: "49", media_id: "49", title: "The General", year: 1926, imdb_id: "tt0017925", tmdb_id: null },
   ];
 
@@ -179,7 +182,7 @@
   function nowPlaying() {
     const elapsed = Date.now() - loadedAt;
     const advance = (s) => ({ ...s, position_ms: (s.position_ms + elapsed) % s.duration_ms });
-    return { sessions: idle ? [] : [advance(CHARADE), advance(HILLBILLIES)], errors: {}, configured: { plex: true, jellyfin: false } };
+    return { sessions: idle ? [] : [advance(NOTLD), advance(ONE_STEP)], errors: {}, configured: { plex: true, jellyfin: false } };
   }
 
   function trivia(q) {
@@ -191,7 +194,7 @@
     return {
       imdb_id: id, imdb: unscope(data.imdb), goofs: unscope(data.goofs || []), wikipedia: data.wikipedia,
       episode_wikipedia: data.episode_wikipedia || null, omdb: data.omdb, errors: {},
-      episode_imdb_id: q.get("season") ? HILLBILLIES.episode.imdb_id : null,
+      episode_imdb_id: q.get("season") ? ONE_STEP.episode.imdb_id : null,
     };
   }
 
@@ -244,8 +247,10 @@
   window.moviebrainDemo = {
     demo: DEMO,
     image(source, id, kind) {
-      // Only Charade has artwork; "data:," fails without a request, so the app shows its fallback.
-      return id === "42" ? "static/demo/charade.jpg" : "data:,";
+      // Public-domain artwork for two titles; "data:," fails without a request, so the app shows its fallback.
+      if (id === "48") return kind === "poster" ? "static/demo/notld-poster.jpg" : "static/demo/notld-backdrop.jpg";
+      if (id === "42") return "static/demo/charade.jpg";
+      return "data:,";
     },
   };
 })();

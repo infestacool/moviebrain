@@ -41,7 +41,7 @@ def main(out: Path) -> None:
         shutil.rmtree(out)
     shutil.copytree(STATIC, out / "static")
     (out / "static" / "demo").mkdir()
-    for f in ("demo.js", "demo.css", "charade.jpg"):
+    for f in ("demo.js", "demo.css", "charade.jpg", "notld-poster.jpg", "notld-backdrop.jpg"):
         shutil.copy(DEMO / f, out / "static" / "demo" / f)
     (out / "index.html").write_text(page("index.html", "app.js"))
     (out / "settings.html").write_text(page("settings.html", "settings.js"))
