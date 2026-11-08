@@ -725,10 +725,13 @@ function badge(icon, className, tip) {
   b.dataset.tip = tip;
   return b;
 }
-const grave = (died) => badge("🪦", "grave", `Died ${died}`);
-function trophy(egot) {
-  const list = egot.length > 1 ? egot.slice(0, -1).join(", ") + " and " + egot.at(-1) : egot[0];
-  return badge("🏆", egot.length === 4 ? "trophy egot" : "trophy", egot.length === 4 ? `EGOT: won an ${list}` : `Won ${/^[EO]/.test(list) ? "an" : "a"} ${list}`);
+const grave = (died) => el("span", { className: "grave", role: "img", ariaLabel: `died ${died}` }, "🪦");
+// The trophy's tooltip lists what each EGOT award was for: "Oscar · Roman Holiday (1954)".
+function trophy(p) {
+  const MAX = 8;
+  const lines = (p.egot_wins || []).map((w) => `${w.award} · ${w.for || "Award"}${w.year ? ` (${w.year})` : ""}`);
+  if (lines.length > MAX) lines.splice(MAX - 1, lines.length, `+${lines.length - MAX + 1} more`);
+  return badge("🏆", p.egot.length === 4 ? "trophy egot" : "trophy", lines.join("\n") || awardsNote(p.egot));
 }
 // "EGOT winner", "Oscar winner", "Oscar & Tony winner"…
 function awardsNote(egot) {
@@ -739,7 +742,7 @@ function awardsNote(egot) {
 
 // Trophy then gravestone, for whoever has either.
 function personBadges(p) {
-  return [p.egot && p.egot.length && trophy(p.egot), p.died && grave(p.died)].filter(Boolean);
+  return [p.egot && p.egot.length && trophy(p), p.died && grave(p.died)].filter(Boolean);
 }
 
 function renderCast() {

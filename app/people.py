@@ -108,7 +108,10 @@ query Credits($id: ID!) {
         nameText { text }
         deathDate { displayableProperty { value { plainText } } }
         awardNominations(first: 20, filter: {wins: WINS_ONLY, events: ["ev0000223", "ev0000301", "ev0000003"]}) {
-          edges { node { award { event { id } } } }
+          edges { node {
+            award { text year event { id } category { text } }
+            awardedEntities { ... on AwardedNames { secondaryAwardTitles { title { titleText { text } } } } }
+          } }
         }
       } } }
     }
@@ -117,10 +120,13 @@ query Credits($id: ID!) {
 """
 
 TONY_QUERY = """
-SELECT DISTINCT ?imdb WHERE {
+SELECT ?imdb ?label ?year ?workLabel WHERE {
   VALUES ?imdb { %s }
-  ?person wdt:P345 ?imdb; wdt:P166 ?award.
+  ?person wdt:P345 ?imdb; p:P166 ?st.
+  ?st ps:P166 ?award.
   ?award rdfs:label ?label. FILTER(LANG(?label) = "en" && CONTAINS(?label, "Tony Award"))
+  OPTIONAL { ?st pq:P585 ?t. BIND(YEAR(?t) AS ?year) }
+  OPTIONAL { ?st pq:P1686 ?work. ?work rdfs:label ?workLabel. FILTER(LANG(?workLabel) = "en") }
 }
 """
 
@@ -130,20 +136,26 @@ def _name_key(name: str) -> str:
     return re.sub(r"[^a-z0-9]", "", plain.lower())
 
 
-async def _tony_winners(name_ids: list[str]) -> set[str]:
+async def _tony_wins(name_ids: list[str]) -> list[tuple[str, dict]]:
+    """[(IMDb name ID, win)] for the Tonys these people won."""
     ids = [i for i in name_ids if NAME_ID.match(i)]
     if not ids:
-        return set()
+        return []
     async with trivia._client() as client:
         r = await trivia._get(client, "https://query.wikidata.org/sparql",
                               params={"query": TONY_QUERY % " ".join(f'"{i}"' for i in ids)},
                               headers={"Accept": "application/sparql-results+json"})
-    return {b["imdb"]["value"] for b in r.json()["results"]["bindings"]}
+    wins = []
+    for b in r.json()["results"]["bindings"]:
+        value = lambda k: (b.get(k) or {}).get("value")  # noqa: E731
+        what = value("workLabel") or re.sub(r"^Tony Award for ", "", value("label") or "")
+        wins.append((value("imdb"), {"award": "Tony", "for": what, "year": int(value("year")) if value("year") else None}))
+    return wins
 
 
 async def _cast_facts(imdb_id: str) -> dict[str, dict]:
     """{name key: {"died", "egot"}} for a title's cast, for those with something to show."""
-    key = f"imdb:castfacts:{imdb_id}"
+    key = f"imdb:castfacts2:{imdb_id}"
     if (hit := trivia._cached(key)) is not None:
         return hit
     async with trivia._client() as client:
@@ -156,16 +168,30 @@ async def _cast_facts(imdb_id: str) -> dict[str, dict]:
     for edge in ((trivia.graphql_data(r).get("title") or {}).get("credits") or {}).get("edges") or []:
         name = (edge.get("node") or {}).get("name") or {}
         died = (((name.get("deathDate") or {}).get("displayableProperty") or {}).get("value") or {}).get("plainText")
-        won = {EGOT_EVENTS.get((((e.get("node") or {}).get("award") or {}).get("event") or {}).get("id"))
-               for e in (name.get("awardNominations") or {}).get("edges") or []} - {None}
-        people[_name_key((name.get("nameText") or {}).get("text"))] = {"id": name.get("id"), "died": died, "won": won}
+        wins = []
+        for e in (name.get("awardNominations") or {}).get("edges") or []:
+            node = e.get("node") or {}
+            award = node.get("award") or {}
+            kind = EGOT_EVENTS.get((award.get("event") or {}).get("id"))
+            titles = (node.get("awardedEntities") or {}).get("secondaryAwardTitles") or []
+            title = (((titles[0] if titles else {}).get("title") or {}).get("titleText") or {}).get("text")
+            if kind:
+                wins.append({"award": kind, "year": award.get("year"),
+                             "for": title or (award.get("category") or {}).get("text") or award.get("text")})
+        people[_name_key((name.get("nameText") or {}).get("text"))] = {"id": name.get("id"), "died": died, "wins": wins}
     try:
-        for nm in await _tony_winners([p["id"] for p in people.values() if p["id"]]):
-            next(p for p in people.values() if p["id"] == nm)["won"].add("Tony")
+        by_id = {p["id"]: p for p in people.values() if p["id"]}
+        for nm, win in await _tony_wins(list(by_id)):
+            if nm in by_id:
+                by_id[nm]["wins"].append(win)
     except Exception as e:  # Wikidata is a nicety here
         log.warning("Wikidata Tony lookup failed: %s", e)
-    facts = {k: {"died": p["died"], "egot": [a for a in EGOT_ORDER if a in p["won"]]}
-             for k, p in people.items() if p["died"] or p["won"]}
+    facts = {}
+    for k, p in people.items():
+        if p["died"] or p["wins"]:
+            wins = sorted(p["wins"], key=lambda w: (EGOT_ORDER.index(w["award"]), w["year"] or 0))
+            facts[k] = {"died": p["died"], "egot": [a for a in EGOT_ORDER if any(w["award"] == a for w in wins)],
+                        "egot_wins": wins}
     return trivia._store(key, facts)
 
 

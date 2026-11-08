@@ -131,8 +131,8 @@
     p7: { born: "October 4, 1957", died: null, library: [], bio: "", trivia: ["Her father, Karl Hardman, plays her on-screen father, Harry Cooper."] },
     p8: { born: "February 6, 1940", died: null, library: [], bio: "", trivia: ["He was also one of the film's producers."] },
     p9: { born: "November 23, 1917", died: "January 10, 2000", library: [], bio: "", trivia: ["He returned as host for the 1978 revival, The Next Step Beyond."] },
-    p10: { egot: ["Oscar"], born: "January 18, 1904", died: "November 29, 1986", library: ["His Girl Friday"], bio: "", trivia: ["He starred in four films for Alfred Hitchcock."] },
-    p11: { egot: ["Emmy", "Grammy", "Oscar", "Tony"], born: "May 4, 1929", died: "January 20, 1993", library: [], bio: "", trivia: [] },
+    p10: { egot_wins: [{ award: "Oscar", for: "Honorary Award", year: 1970 }], egot: ["Oscar"], born: "January 18, 1904", died: "November 29, 1986", library: ["His Girl Friday"], bio: "", trivia: ["He starred in four films for Alfred Hitchcock."] },
+    p11: { egot_wins: [{ award: "Emmy", for: "Gardens of the World with Audrey Hepburn", year: 1993 }, { award: "Grammy", for: "Best Spoken Word Album for Children", year: 1994 }, { award: "Oscar", for: "Roman Holiday", year: 1954 }, { award: "Oscar", for: "Jean Hersholt Humanitarian Award", year: 1993 }, { award: "Tony", for: "Ondine", year: 1954 }, { award: "Tony", for: "Special Tony Award", year: 1968 }], egot: ["Emmy", "Grammy", "Oscar", "Tony"], born: "May 4, 1929", died: "January 20, 1993", library: [], bio: "", trivia: [] },
   };
 
   // ---- Search ---------------------------------------------------------------
@@ -237,7 +237,7 @@
       case "/api/display": return display();
       case "/api/now-playing": return nowPlaying();
       case "/api/trivia": return trivia(q);
-      case "/api/cast": return { cast: (CAST[q.get("item")] || []).map(([id, name, role]) => ({ id, name, role, photo: null, guest: false, died: PEOPLE[id].died, egot: PEOPLE[id].egot })) };
+      case "/api/cast": return { cast: (CAST[q.get("item")] || []).map(([id, name, role]) => ({ id, name, role, photo: null, guest: false, died: PEOPLE[id].died, egot: PEOPLE[id].egot, egot_wins: PEOPLE[id].egot_wins })) };
       case "/api/person": return person(q);
       case "/api/recent": return { movies: RECENT };
       case "/api/pick":

@@ -523,7 +523,7 @@ button.primary { background: var(--accent); color: var(--accent-text); font-weig
 .tip { position: relative; outline: none; }
 .tip:hover::after, .tip:focus-visible::after {
   content: attr(data-tip); position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; pointer-events: none;
-  white-space: nowrap; padding: 5px 9px; border-radius: 8px; font-size: 12px; font-weight: 600; line-height: 1.2;
+  white-space: pre-line; width: max-content; max-width: min(360px, 80vw); text-align: left; padding: 5px 9px; border-radius: 8px; font-size: 12px; font-weight: 600; line-height: 1.45;
   background: var(--text); color: var(--bg);
 }
 .avatar.deceased img { filter: grayscale(1); }
