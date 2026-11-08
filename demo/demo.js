@@ -206,12 +206,28 @@
     };
   }
 
+  // Facts about each person, as IMDb lists them.
+  const DETAILS = {
+    p1: {"birthplace": "New York City, New York, USA", "death_place": "Mineola, Long Island, New York, USA", "death_cause": "cardiopulmonary arrest", "height": "6′ 2″ (1.88 m)", "known_for": [{"title": "Night of the Living Dead", "year": 1968}, {"title": "Ganja & Hess", "year": 1973}, {"title": "To Die For", "year": 1988}, {"title": "Losing Ground", "year": 1982}], "imdb_id": "nm0427977"},
+    p2: {"birthplace": "Pittsburgh, Pennsylvania, USA", "height": "5′ 6″ (1.68 m)", "known_for": [{"title": "Night of the Living Dead", "year": 1968}, {"title": "Vampire Zombies... From Space!", "year": 2024}, {"title": "Night of the Living Dead: Genesis", "year": null}, {"title": "October Moon 2: November Son", "year": 2008}], "awards": {"summary": null, "wins": 2, "nominations": 5, "highlights": []}, "imdb_id": "nm0640621"},
+    p3: {"birthplace": "Pittsburgh, Pennsylvania, USA", "death_place": "Pittsburgh, Pennsylvania, USA", "death_cause": "pancreatic cancer", "height": "5′ 9″ (1.75 m)", "known_for": [{"title": "Night of the Living Dead", "year": 1968}, {"title": "Night of the Living Dead: 30th Anniversary Edition", "year": 1999}, {"title": "Laugh Track: Night of the Living Dead", "year": 2003}, {"title": "Santa Claws", "year": 1996}], "imdb_id": "nm0362457"},
+    p4: {"birthplace": "Beaver, Iowa, USA", "death_place": "Tampa, Florida, USA", "height": "5′ 10″ (1.78 m)", "known_for": [{"title": "Night of the Living Dead", "year": 1968}, {"title": "Chiller Theater", "year": 1963}, {"title": "Perry Mason", "year": 1957}, {"title": "Houseguest", "year": 1995}], "imdb_id": "nm0247659"},
+    p5: {"birthplace": "Washington, Pennsylvania, USA", "death_place": "Cary, North Carolina, USA", "death_cause": "undisclosed", "height": "5′ 9¼″ (1.76 m)", "known_for": [{"title": "Night of the Living Dead", "year": 1968}, {"title": "Night of the Living Dead: audio commentary with Russell Streiner, Bill Hinzman, Judith O'Dea, Keith Wayne, Kyra Schon and Vincent D. Survinski", "year": 1994}], "imdb_id": "nm0915593"},
+    p6: {"birthplace": "Pittsburgh, Pennsylvania, USA", "height": "5′ 8½″ (1.74 m)", "known_for": [{"title": "Night of the Living Dead", "year": 1968}, {"title": "The Affair", "year": 1971}, {"title": "The Living Dead Reunion (Evans City)", "year": 2024}], "imdb_id": "nm0725985"},
+    p7: {"birthplace": "Pittsburgh, Pennsylvania, USA", "height": "5′ 9″ (1.75 m)", "known_for": [{"title": "Night of the Living Dead", "year": 1968}, {"title": "The Greenman", "year": 2011}, {"title": "Tortured Soul II: Ike and Mike", "year": 1994}, {"title": "Dayplanner of the Dead", "year": 2013}], "imdb_id": "nm0774736"},
+    p8: {"birthplace": "Pittsburgh, Pennsylvania, USA", "known_for": [{"title": "Night of the Living Dead", "year": 1968}, {"title": "Night of the Living Dead", "year": 1990}, {"title": "The Return of the Living Dead", "year": 1985}, {"title": "The Devil and Sam Silverstein", "year": 1976}], "imdb_id": "nm0834183"},
+    p9: {"birthplace": "Cincinnati, Ohio, USA", "death_place": "Los Angeles, California, USA", "death_cause": "stroke", "known_for": [{"title": "The Man Who Never Was", "year": 1966}, {"title": "One Step Beyond", "year": 1959}, {"title": "Star Trek", "year": 1966}, {"title": "Tales of Tomorrow", "year": 1951}], "awards": {"summary": "Nominated for 1 Primetime Emmy", "wins": 0, "nominations": 1, "highlights": []}, "imdb_id": "nm0627950"},
+    p10: {"birthplace": "Horfield, Bristol, England, UK", "death_place": "Davenport, Iowa, USA", "death_cause": "cerebral hemorrhage", "height": "6′ 2″ (1.88 m)", "known_for": [{"title": "Arsenic and Old Lace", "year": 1944}, {"title": "North by Northwest", "year": 1959}, {"title": "The Philadelphia Story", "year": 1940}, {"title": "His Girl Friday", "year": 1940}], "awards": {"summary": "Nominated for 2 Oscars", "wins": 35, "nominations": 58, "highlights": [{"event": "Academy Awards", "award": "Honorary Award", "year": 1970, "category": null, "title": null}]}, "imdb_id": "nm0000026"},
+    p11: {"birthplace": "Ixelles, Brussels, Belgium", "death_place": "Tolochenaz, Vaud, Switzerland", "death_cause": "appendiceal cancer", "height": "5′ 6¾″ (1.70 m)", "known_for": [{"title": "Breakfast at Tiffany's", "year": 1961}, {"title": "Roman Holiday", "year": 1953}, {"title": "My Fair Lady", "year": 1964}, {"title": "Charade", "year": 1963}], "awards": {"summary": "Won 1 Oscar from 4 nominations", "wins": 25, "nominations": 74, "highlights": [{"event": "Academy Awards", "award": "Oscar", "year": 1954, "category": "Best Actress in a Leading Role", "title": "Roman Holiday"}, {"event": "Academy Awards", "award": "Jean Hersholt Humanitarian Award", "year": 1993, "category": null, "title": null}, {"event": "Golden Globes", "award": "Golden Globe", "year": 1954, "category": "Best Actress - Drama", "title": "Roman Holiday"}, {"event": "Golden Globes", "award": "Henrietta Award", "year": 1955, "category": "World Film Favorite - Female", "title": null}, {"event": "Golden Globes", "award": "Cecil B. DeMille Award", "year": 1990, "category": null, "title": null}, {"event": "BAFTA Awards", "award": "BAFTA Film Award", "year": 1954, "category": "Best British Actress", "title": "Roman Holiday"}]}, "imdb_id": "nm0000030"},
+  };
+
   function person(q) {
     const p = PEOPLE[q.get("id")] || { library: [], trivia: [] };
+    const d = DETAILS[q.get("id")] || {};
     return {
       name: q.get("name"), errors: {},
       library: p.library.map((t) => LIBRARY[t]),
-      imdb: { imdb_id: null, url: "https://www.imdb.com/find/?q=" + encodeURIComponent(q.get("name") || ""), born: p.born, died: p.died, bio: p.bio, trivia: p.trivia },
+      imdb: { ...d, url: `https://www.imdb.com/name/${d.imdb_id}/`, born: p.born, died: p.died, bio: p.bio, trivia: p.trivia },
     };
   }
 

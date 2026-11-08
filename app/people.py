@@ -244,6 +244,18 @@ query Person($id: ID!) {
     nameText { text }
     birthDate { displayableProperty { value { plainText } } }
     deathDate { displayableProperty { value { plainText } } }
+    birthLocation { text }
+    deathLocation { text }
+    deathCause { text }
+    height { displayableProperty { value { plainText } } }
+    knownFor(first: 4) { edges { node { title { titleText { text } releaseYear { year } } } } }
+    prestigiousAwardSummary { nominations wins award { text } }
+    totalWins: awardNominations(first: 1, filter: {wins: WINS_ONLY}) { total }
+    totalNominations: awardNominations(first: 1) { total }
+    wins: awardNominations(first: 100, filter: {wins: WINS_ONLY}) {
+      edges { node { award { text year event { text } category { text } }
+        awardedEntities { ... on AwardedNames { secondaryAwardTitles { title { titleText { text } } } } } } }
+    }
     bio { text { plainText } }
     trivia(first: 25) { edges { node { text { plainText } } } }
   }
@@ -262,6 +274,44 @@ async def _imdb_name_id(name: str) -> str | None:
         if NAME_ID.match(d.get("id", "")) and (d.get("l") or "").lower() == name.lower():
             return d["id"]
     return None
+
+
+# Wins worth listing by name; everything else is in the totals.
+MAJOR_AWARDS = ("Academy Awards", "Golden Globes", "BAFTA", "Primetime Emmy", "Screen Actors Guild",
+                "Tony Awards", "Cannes Film Festival", "Venice Film Festival", "Berlin International Film Festival",
+                "Grammy Awards", "Independent Spirit")
+MAX_AWARDS = 6
+
+
+def _awards(n: dict) -> dict | None:
+    total = lambda k: ((n.get(k) or {}).get("total")) or 0  # noqa: E731
+    wins, noms = total("totalWins"), total("totalNominations")
+    top = n.get("prestigiousAwardSummary") or {}
+    name = (top.get("award") or {}).get("text")
+    summary = None
+    if name and top.get("wins"):
+        summary = f"Won {top['wins']} {name}" + ("s" if top["wins"] > 1 else "")
+        if top.get("nominations", 0) > top["wins"]:
+            summary += f" from {top['nominations']} nominations"
+    elif name and top.get("nominations"):
+        summary = f"Nominated for {top['nominations']} {name}" + ("s" if top["nominations"] > 1 else "")
+    highlights = []
+    for edge in (n.get("wins") or {}).get("edges") or []:
+        node = edge.get("node") or {}
+        award = node.get("award") or {}
+        event = ((award.get("event") or {}).get("text") or "").split(",")[0]
+        if not any(event.startswith(m) for m in MAJOR_AWARDS):
+            continue
+        titles = ((node.get("awardedEntities") or {}).get("secondaryAwardTitles") or [])
+        highlights.append({
+            "event": event, "award": award.get("text"), "year": award.get("year"),
+            "category": (award.get("category") or {}).get("text"),
+            "title": (((titles[0] if titles else {}).get("title") or {}).get("titleText") or {}).get("text"),
+        })
+    highlights.sort(key=lambda a: (MAJOR_AWARDS.index(next(m for m in MAJOR_AWARDS if a["event"].startswith(m))), a["year"] or 0))
+    if not (summary or wins or noms):
+        return None
+    return {"summary": summary, "wins": wins, "nominations": noms, "highlights": highlights[:MAX_AWARDS]}
 
 
 def _short_bio(text: str, max_chars: int = 700) -> str:
@@ -286,7 +336,7 @@ def _short_bio(text: str, max_chars: int = 700) -> str:
 
 
 async def imdb_person(name_id: str) -> dict | None:
-    key = f"imdb:name:{name_id}"
+    key = f"imdb:name2:{name_id}"
     if (hit := trivia._cached(key)) is not None:
         return hit or None
     async with trivia._client() as client:
@@ -302,6 +352,14 @@ async def imdb_person(name_id: str) -> dict | None:
         "url": f"https://www.imdb.com/name/{name_id}/",
         "born": date(n.get("birthDate")),
         "died": date(n.get("deathDate")),
+        "birthplace": (n.get("birthLocation") or {}).get("text"),
+        "death_place": (n.get("deathLocation") or {}).get("text"),
+        "death_cause": (n.get("deathCause") or {}).get("text"),
+        "height": date(n.get("height")),
+        "known_for": [{"title": t["titleText"]["text"], "year": (t.get("releaseYear") or {}).get("year")}
+                      for e in ((n.get("knownFor") or {}).get("edges") or [])
+                      if (t := (e.get("node") or {}).get("title") or {}).get("titleText")],
+        "awards": _awards(n),
         "bio": _short_bio(((n.get("bio") or {}).get("text") or {}).get("plainText") or ""),
         "trivia": [e["node"]["text"]["plainText"] for e in ((n.get("trivia") or {}).get("edges") or [])
                    if ((e.get("node") or {}).get("text") or {}).get("plainText")],

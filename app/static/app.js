@@ -770,10 +770,6 @@ function renderPerson(p, data, session) {
     $("person-name").append(grave(about.died));
     $("person-photo").classList.add("deceased");
   }
-  if (about && (about.born || about.died)) {
-    $("person-meta").textContent = [p.role && `${p.role} in ${session.title}`,
-      about.born && `Born ${about.born}`, about.died && `died ${about.died}`].filter(Boolean).join(" · ");
-  }
 
   // Other titles in your library, not counting the one on screen.
   const elsewhere = data.library.filter((t) => t.item_id !== session.item_id);
@@ -798,6 +794,39 @@ function renderPerson(p, data, session) {
   } else {
     parts.push(el("p", { className: "empty-note" },
       data.errors.library ? "Couldn't search your library." : "Nothing else in your library."));
+  }
+
+  if (about) {
+    const at = (date, place) => [date, place && `in ${place}`].filter(Boolean).join(" ");
+    const rows = [
+      ["Born", at(about.born, about.birthplace)],
+      ["Died", at(about.died, about.death_place)],
+      ["Cause of death", about.death_cause && about.death_cause[0].toUpperCase() + about.death_cause.slice(1)],
+      ["Height", about.height],
+      ["Known for", (about.known_for || []).map((t) => t.title + (t.year ? ` (${t.year})` : "")).join(", ")],
+    ].filter(([, v]) => v);
+    if (rows.length) {
+      const dl = el("dl", { className: "person-facts" });
+      for (const [k, v] of rows) dl.append(el("dt", {}, k), el("dd", {}, v));
+      parts.push(dl);
+    }
+  }
+  const awards = about && about.awards;
+  if (awards) {
+    parts.push(el("h3", {}, "Awards"));
+    const box = el("div", { className: "awards" });
+    if (awards.summary) box.append(el("p", { className: "awards-top" }, "🏆 " + awards.summary));
+    if (awards.wins || awards.nominations) {
+      box.append(el("p", { className: "awards-total" },
+        `${awards.wins} ${awards.wins === 1 ? "win" : "wins"} and ${awards.nominations} nominations in total`));
+    }
+    if (awards.highlights.length) {
+      box.append(el("ul", { className: "person-trivia" }, undefined));
+      box.lastChild.append(...awards.highlights.map((a) => el("li", {},
+        `${a.year ? a.year + " " : ""}${a.event}: ${a.category || a.award}${a.title ? ` (${a.title})` : ""}`)));
+    }
+    box.append(el("a", { className: "wiki-link", href: about.url + "awards/", target: "_blank", rel: "noopener" }, "All awards on IMDb →"));
+    parts.push(box);
   }
 
   if (about && about.bio) {
