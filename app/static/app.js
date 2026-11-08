@@ -141,6 +141,7 @@ function serverNames() {
 }
 
 function lookUp(movie) {
+  if ($("find").open) $("find").close();
   state.manual = movie;
   state.triviaFor = null;
   hideSuggestions();
@@ -1087,6 +1088,28 @@ $("tv-view").querySelectorAll("button").forEach((b) => {
 });
 
 $("person-close").onclick = () => $("person").close();
+
+// The header name opens search from anywhere. The search box and recently added shelf move
+// into the sheet while it's open, and back to the "Nothing playing" page after.
+function openFind() {
+  $("find-body").append($("search"), $("recent"));
+  $("search-input").value = "";
+  $("find").showModal();
+  $("search-input").focus();
+  loadRecent();
+}
+$("brand").onclick = openFind;
+$("find-close").onclick = () => $("find").close();
+$("find").addEventListener("close", () => {
+  hideSuggestions();
+  $("empty").append($("search"), $("recent"));
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "/" && !state.screen && !document.querySelector("dialog[open]") && !/INPUT|TEXTAREA/.test(e.target.tagName)) {
+    e.preventDefault();
+    openFind();
+  }
+});
 $("person").addEventListener("click", (e) => {
   if (e.target === e.currentTarget) e.currentTarget.close(); // tap outside the sheet closes it
 });

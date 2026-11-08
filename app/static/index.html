@@ -18,7 +18,7 @@
   <div id="backdrop" aria-hidden="true"></div>
 
   <header class="topbar">
-    <div class="brand">🧠 Moviebrain</div>
+    <button id="brand" class="brand" type="button" title="Look up a movie or show" aria-label="Moviebrain: look up a movie or show">🧠 Moviebrain <svg class="brand-search" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M15.5 15.5 21 21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
     <div class="actions">
       <div id="tv-view" class="segmented" role="radiogroup" aria-label="Show facts about" hidden>
         <button role="radio" data-view="episode" aria-checked="true">Episode</button>
@@ -166,6 +166,16 @@
       <button id="back-to-playing" class="link-button" hidden>← Back to what's playing</button>
     </section>
   </main>
+
+  <dialog id="find" class="sheet sheet-top" aria-labelledby="find-title">
+    <div class="sheet-inner">
+      <div class="sheet-head">
+        <h2 id="find-title" class="find-title">Look up a movie or show</h2>
+        <button id="find-close" class="sheet-close" aria-label="Close">✕</button>
+      </div>
+      <div id="find-body"></div>
+    </div>
+  </dialog>
 
   <dialog id="person" class="sheet" aria-labelledby="person-name">
     <div class="sheet-inner">

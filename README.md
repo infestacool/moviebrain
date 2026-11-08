@@ -23,7 +23,7 @@ Trivia for whatever's playing on **Plex** or **Jellyfin**: IMDb trivia and goofs
 - **Trivia, Goofs, Wikipedia**: full lists; spoilers blurred until tapped; plots skipped. Tick facts as read to hide them.
 - **Cast**: tap an actor to see their other titles **in your library**, plus their bio, awards, birthplace and more. 🏆 marks Emmy, Grammy, Oscar or Tony winners; 🪦 marks actors who have died.
 - **TV**: facts for the episode on screen, or toggle to the whole series.
-- **Nothing playing?** Tonight's pick: an unwatched movie from your library with a teaser fact. Or pick from recently added, or search with suggestions.
+- **Nothing playing?** Tonight's pick: an unwatched movie from your library with a teaser fact. Or pick from recently added, or search with suggestions. Tap **Moviebrain** at the top (or press `/`) to look up something else anytime.
 - **Ratings & awards** (optional OMDb key).
 - **Settings page** that saves as you go; choose sources, sections and goof kinds.
 - **Source links** at the bottom of every title and person page.
