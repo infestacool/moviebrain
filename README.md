@@ -1,5 +1,7 @@
 # 🧠 Moviebrain
 
+**[Try the demo →](https://infestacool.github.io/moviebrain/)** (sample data, no install)
+
 Trivia for whatever's playing on **Plex** or **Jellyfin**: IMDb trivia and goofs, Wikipedia background, cast, and optional OMDb ratings. A small self-hosted web app for phones, tablets and desktops. Runs in Docker on Unraid, QNAP, Synology or any Docker host.
 
 <p align="center">
@@ -93,6 +95,8 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ```bash
 CONFIG_DIR=./config .venv/bin/uvicorn app.main:app --reload --port 8085
 ```
+
+`python3 demo/build.py` builds the demo site (the real pages plus sample data in `demo/demo.js`); it's published to GitHub Pages on push.
 
 Each push to `main` builds the image; the x86-64 build is started and checked before it's published.
 

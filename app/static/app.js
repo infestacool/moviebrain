@@ -35,6 +35,12 @@ function store(key, value) {
   } catch { return null; }
 }
 
+// Artwork comes through the server so tokens stay private. The demo site supplies its own images.
+function imageUrl(source, id, kind) {
+  const demo = window.moviebrainDemo;
+  return demo ? demo.image(source, id, kind) : `/api/image/${source}/${id}/${kind}`;
+}
+
 function el(tag, attrs = {}, text) {
   const node = document.createElement(tag);
   Object.assign(node, attrs);
@@ -176,11 +182,11 @@ function renderHero(movie, session) {
   const poster = $("poster");
   const art = session || (movie.source ? movie : null); // playing, or picked from your library
   if (art) {
-    const src = `/api/image/${art.source}/${art.item_id}/poster`;
+    const src = imageUrl(art.source, art.item_id, "poster");
     poster.onerror = () => { poster.dataset.failed = src; poster.hidden = true; };
     if (poster.getAttribute("src") !== src) poster.src = src;
     poster.hidden = poster.dataset.failed === src;
-    setBackdrop(`/api/image/${art.source}/${art.item_id}/backdrop`);
+    setBackdrop(imageUrl(art.source, art.item_id, "backdrop"));
     const source = art.source === "plex" ? "Plex" : "Jellyfin";
     $("meta").textContent = !session ? `From your ${source} library`
       : [session.state === "paused" ? "Paused" : "Now playing", source, session.user, session.device].filter(Boolean).join(" · ");
@@ -720,7 +726,7 @@ function renderPerson(p, data, session) {
       const item = el("div", { className: "shelf-item" });
       const cover = el("div", { className: "cover" });
       cover.append(el("span", {}, t.title));
-      const img = el("img", { src: `/api/image/${session.source}/${t.item_id}/poster`, alt: "", loading: "lazy" });
+      const img = el("img", { src: imageUrl(session.source, t.item_id, "poster"), alt: "", loading: "lazy" });
       img.onerror = () => img.remove();
       cover.append(img);
       item.append(cover, el("div", { className: "title" }, t.title));
@@ -904,7 +910,7 @@ async function loadRecent() {
       const item = el("button", { className: "shelf-item" });
       const cover = el("div", { className: "cover" });
       cover.append(el("span", {}, m.title));
-      const img = el("img", { src: `/api/image/${m.source}/${m.item_id}/poster`, alt: "", loading: "lazy" });
+      const img = el("img", { src: imageUrl(m.source, m.item_id, "poster"), alt: "", loading: "lazy" });
       img.onerror = () => img.remove();
       cover.append(img);
       item.append(cover, el("div", { className: "title" }, m.title));
