@@ -116,9 +116,11 @@
   const LIBRARY = {
     "Charade": { item_id: "42", title: "Charade", year: 1963, kind: "movie", episodes: [] },
     "His Girl Friday": { item_id: "43", title: "His Girl Friday", year: 1940, kind: "movie", episodes: [] },
+    "Ganja & Hess": { item_id: "50", title: "Ganja & Hess", year: 1973, kind: "movie", episodes: [] },
+    "One Step Beyond": { item_id: "90", title: "One Step Beyond", year: 1959, kind: "show", episodes: ["S01E01 · The Bride Possessed"] },
   };
   const PEOPLE = {
-    p1: { born: "April 11, 1937", died: "July 22, 1988", library: [],
+    p1: { born: "April 11, 1937", died: "July 22, 1988", library: ["Ganja & Hess"],
       bio: "Ben was his first major film role. He worked mostly in theater afterwards, as an actor, teacher and director.",
       trivia: ["Romero said he got the part simply by giving the best audition."] },
     p2: { born: "April 20, 1945", died: null, library: [], bio: "", trivia: ["Johnny's teasing line to her in the cemetery became one of horror's most quoted."] },
