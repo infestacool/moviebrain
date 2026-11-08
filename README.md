@@ -61,7 +61,7 @@ Use your server's LAN address (e.g. `http://0.0.0.0:32400`), not `localhost`.
 
 ## Data sources
 
-- **IMDb**: Moviebrain reads trivia, goofs and biographies from the unofficial API that imdb.com itself uses, presenting itself as IMDb's web client. **This is not authorized by IMDb**, whose terms prohibit automated access without permission, and it may stop working at any time. You're responsible for your use; you can switch IMDb off in Settings.
+- **IMDb**: trivia, goofs and biographies.
 - **Wikipedia / Wikidata**: text is [CC BY-SA](https://creativecommons.org/licenses/by-sa/4.0/); each article is linked.
 - **OMDb**: your own key, under [OMDb's terms](https://www.omdbapi.com/legal.htm).
 
