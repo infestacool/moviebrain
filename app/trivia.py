@@ -488,6 +488,66 @@ async def _wikipedia(key: str, wiki_title: str) -> dict:
 
 # --- Combined ---------------------------------------------------------------
 
+# --- Content warnings ---------------------------------------------------------
+# Found in IMDb's keywords and Parents Guide notes. Keywords are short tags ("teen suicide");
+# the notes are sentences, so they only count with clearer wording.
+
+WARNINGS_QUERY = """
+query Warnings($id: ID!) {
+  title(id: $id) {
+    keywords(first: 250) { edges { node { keyword { text { text } } } } }
+    parentsGuide { categories { guideItems(first: 50) { edges { node { text { plainText } } } } } }
+  }
+}
+"""
+
+_PET = r"(?:dog|cat|horse|puppy|kitten|pet|pony|animal)s?"
+_KID = r"(?:child|children|kid|kids|baby|babies|infant|toddler|son|daughter)"
+WARNING_TOPICS = [
+    ("Sexual assault",
+     r"\b(?:rape|raped|rapes|raping|rapist|sexual (?:assault|abuse|violence)|molest\w*)\b",
+     r"\b(?:rape[ds]?|raping|rapist|sexual(?:ly)? (?:assault|abuse)\w*|molest\w*)\b"),
+    ("Self-harm",
+     r"\bself[ -]?(?:harm|mutilation|injury|inflicted)|\bcutting (?:oneself|herself|himself)|\bslit wrists?",
+     r"\bself[ -]?harm|\b(?:slits?|cuts?|cutting) (?:on )?(?:her|his|their) (?:own )?wrists?|\bcuts? on (?:her|his|their) wrists?|\bcutting (?:her|him|them)sel(?:f|ves)"),
+    ("Suicide",
+     r"\bsuicid(?!e (?:mission|squad|bomb|run|vest|attack|bombing|bomber|drone|jockey|doors?))",
+     r"\bcommits? suicide|\b(?:kills?|killed|hangs?|hanged|shoots?|shot) (?:him|her|them)sel(?:f|ves)\b|\bsuicid(?!e (?:mission|squad|bomb))"),
+    ("Animal harm",
+     rf"\banimal (?:cruelty|abuse|death|killing|torture)|\b(?:killing|shooting|death of|dead|injured|killed|shot|kills|torturing|abused|drowning|beating) (?:a |an |the )?{_PET}\b|\b{_PET} (?:killed|dies|death|shot|abuse|cruelty|torture|is killed|gets killed|put down)\b|\brabid dog",
+     rf"\b{_PET} (?:is |are |gets? )?(?:shot|killed|stabbed|beaten|tortured|euthani[sz]ed|put down|run over)\b|\b(?:shoots?|kills?|stabs?|beats?|tortures?|euthani[sz]es?|drowns?|runs? over) (?:a|an|the|his|her|their) {_PET}\b|\banimal (?:cruelty|abuse)"),
+    ("Child harm",
+     rf"\b(?:child|children|kid|baby|infant|boy|girl)(?:'s)? (?:abuse|murder|killed|death|dies|in peril|torture|endangerment|killer|murderer)\b|\b(?:killing|murder|death|abuse|injured|abused|dead|murdered|killed) (?:of )?(?:a |the )?{_KID}\b|\binfanticide|\bfilicide|\bchild sexual abuse",
+     rf"\b{_KID} (?:is |are |gets? )?(?:shot|killed|stabbed|beaten|abused|tortured|murdered|dies|drowns)\b|\b(?:shoots?|kills?|stabs?|beats?|abuses?|murders?|drowns?) (?:a|the|his|her|their) {_KID}\b|\bchild abuse"),
+]
+
+
+def warning_topics(keywords: list[str], notes: list[str]) -> list[str]:
+    """Which WARNING_TOPICS appear in a title's keywords or Parents Guide notes."""
+    words = " | ".join(k.lower() for k in keywords)
+    notes = [n.lower() for n in notes]
+    # A keyword is enough; notes need two mentions, since one can be in passing ("mistaken for…").
+    return [name for name, kw, note in WARNING_TOPICS
+            if re.search(kw, words) or sum(bool(re.search(note, n)) for n in notes) >= 2]
+
+
+async def content_warnings(imdb_id: str) -> list[str]:
+    key = f"imdb:warnings2:{imdb_id}"
+    if (hit := _cached(key)) is not None:
+        return hit
+    async with _client() as client:
+        r = await client.post(IMDB_GRAPHQL, json={"query": WARNINGS_QUERY, "variables": {"id": imdb_id}},
+                              headers={"x-imdb-client-name": "imdb-web-next", "content-type": "application/json"})
+        r.raise_for_status()
+    t = graphql_data(r).get("title") or {}
+    keywords = [((e.get("node") or {}).get("keyword") or {}).get("text", {}).get("text") or ""
+                for e in (t.get("keywords") or {}).get("edges") or []]
+    notes = [((e.get("node") or {}).get("text") or {}).get("plainText") or ""
+             for c in ((t.get("parentsGuide") or {}).get("categories") or [])
+             for e in (c.get("guideItems") or {}).get("edges") or []]
+    return _store(key, warning_topics(keywords, notes))
+
+
 async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None, year: int | None,
                      kind: str = "movie", episode: dict | None = None) -> dict:
     """Trivia, goofs and Wikipedia for a movie, or for a TV show plus the episode playing.
@@ -498,7 +558,7 @@ async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None
     ids = await resolve(imdb_id, tmdb_id, title, year, "tv" if is_tv else "movie")
     out: dict = {
         "imdb_id": ids["imdb_id"], "imdb": None, "goofs": None, "wikipedia": None,
-        "episode_wikipedia": None, "omdb": None, "errors": {},
+        "episode_wikipedia": None, "omdb": None, "warnings": [], "errors": {},
     }
 
     episode_imdb = None
@@ -525,6 +585,11 @@ async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None
             tasks.append(("omdb", "episode", omdb(episode_imdb)))
         if ids["imdb_id"]:
             tasks.append(("omdb", "series" if is_tv and episode else None, omdb(ids["imdb_id"])))
+    if config.S.include_warnings:
+        if episode_imdb:
+            tasks.append(("warnings", "episode", content_warnings(episode_imdb)))
+        if ids["imdb_id"]:
+            tasks.append(("warnings", "series" if is_tv and episode else None, content_warnings(ids["imdb_id"])))
     if ids["wiki_title"] and config.S.include_wikipedia:
         tasks.append(("wikipedia", None, wikipedia(ids["wiki_title"])))
     if episode_imdb and config.S.include_wikipedia:
@@ -538,6 +603,8 @@ async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None
         elif name in ("imdb", "goofs"):
             items = [{**item, "scope": scope} for item in res] if scope else res
             out[name] = (out[name] or []) + items
+        elif name == "warnings":
+            out["warnings"].append({"scope": scope, "topics": res})
         elif name == "omdb":
             if res:
                 out["omdb"] = (out.get("omdb") or []) + [{**res, "scope": scope}]

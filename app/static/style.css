@@ -560,3 +560,7 @@ button.primary { background: var(--accent); color: var(--accent-text); font-weig
 .find-title { margin: 6px 0 0; font-size: 1.15rem; }
 #find .search { margin: 0; max-width: none; }
 #find .recent { margin-top: 24px; }
+.glance li.warning { cursor: pointer; border-color: rgba(255, 107, 107, .45); }
+.glance li.warning b { color: var(--danger); }
+.cw-hidden { filter: blur(5px); user-select: none; }
+.logo-warn { background: #ff6b6b; color: #fff; font-size: 18px; }

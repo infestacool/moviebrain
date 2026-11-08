@@ -24,6 +24,7 @@ Trivia for whatever's playing on **Plex** or **Jellyfin**: IMDb trivia and goofs
 - **Cast**: tap an actor to see their other titles **in your library**, plus their bio, awards, birthplace and more. 🏆 marks Emmy, Grammy, Oscar or Tony winners; 🪦 marks actors who have died.
 - **TV**: facts for the episode on screen, or toggle to the whole series.
 - **Nothing playing?** Tonight's pick: an unwatched movie from your library with a teaser fact. Or pick from recently added, or search with suggestions. Tap **Moviebrain** at the top (or press `/`) to look up something else anytime.
+- **Content warnings**: a blurred ⚠ alert when IMDb flags sexual assault, self-harm, suicide, or animals or children being hurt.
 - **Ratings & awards** (optional OMDb key).
 - **Settings page** that saves as you go; choose sources, sections and goof kinds.
 - **Source links** at the bottom of every title and person page.
@@ -61,7 +62,7 @@ Use your server's LAN address (e.g. `http://0.0.0.0:32400`), not `localhost`.
 
 ## Data sources
 
-- **IMDb**: trivia, goofs and biographies.
+- **IMDb**: trivia, goofs, biographies and content warnings.
 - **Wikipedia / Wikidata**: text is [CC BY-SA](https://creativecommons.org/licenses/by-sa/4.0/); each article is linked.
 - **OMDb**: your own key, under [OMDb's terms](https://www.omdbapi.com/legal.htm).
 
@@ -75,7 +76,7 @@ All optional; anything you change on the Settings page wins.
 | `PLEX_URL`, `PLEX_TOKEN` | | Plex server |
 | `JELLYFIN_URL`, `JELLYFIN_API_KEY` | | Jellyfin server |
 | `OMDB_API_KEY` | | Ratings & awards |
-| `INCLUDE_IMDB`, `INCLUDE_GOOFS`, `INCLUDE_WIKIPEDIA`, `INCLUDE_OMDB` | `true` | Sources |
+| `INCLUDE_IMDB`, `INCLUDE_GOOFS`, `INCLUDE_WIKIPEDIA`, `INCLUDE_OMDB`, `INCLUDE_WARNINGS` | `true` | Sources and content warnings |
 | `USERS` | | Only show these users' viewing |
 | `WIKI_LANG` | `en` | Wikipedia language code |
 | `AUTH_MODE` | `none` | `none`, `plex`, `oidc` or `authentik` |

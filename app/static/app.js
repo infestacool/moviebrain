@@ -516,6 +516,16 @@ function renderSourceLinks() {
 const RATING_SHORT = { IMDb: "IMDb", "Rotten Tomatoes": "RT", Metacritic: "MC" };
 
 // A row of quick stats under the title: ratings, awards and box office from OMDb.
+// Content warning topics for what's shown: the episode, the series, or both, like the facts.
+function warningTopics() {
+  if (!state.filters.sources.warnings || !state.trivia) return [];
+  const topics = new Set();
+  for (const w of state.trivia.warnings || []) {
+    if (!w.scope || state.filters.scopes[w.scope]) w.topics.forEach((t) => topics.add(t));
+  }
+  return [...topics];
+}
+
 function renderGlance() {
   const list = $("glance");
   const main = omdbFor(isTv() ? "series" : undefined), ep = isTv() ? omdbFor("episode") : null;
@@ -539,6 +549,19 @@ function renderGlance() {
     const n = Number(main.box_office.replace(/[^0-9]/g, ""));
     const short = n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${Math.round(n / 1e6)}M` : main.box_office;
     stat("Box office", short, `${main.box_office} at the US box office`);
+  }
+  // Content warnings, blurred like spoilers until tapped.
+  const topics = warningTopics();
+  if (topics.length) {
+    const li = el("li", { className: "warning" });
+    const hidden = !state.showSpoilers && state.warningsShown !== state.triviaFor;
+    const text = el("span", { className: hidden ? "cw-hidden" : "" }, topics.join(", "));
+    if (hidden) {
+      li.title = "Tap to see content warnings";
+      li.onclick = () => { state.warningsShown = state.triviaFor; renderGlance(); };
+    }
+    li.append(el("b", {}, "⚠ "), text);
+    items.push(li);
   }
   list.replaceChildren(...items);
   list.hidden = !items.length;

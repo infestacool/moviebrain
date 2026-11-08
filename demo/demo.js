@@ -164,7 +164,7 @@
     plex_url: "http://0.0.0.0:32400", plex_token: "", plex_token_set: true,
     jellyfin_url: "", jellyfin_api_key: "", jellyfin_api_key_set: false, users: "",
     include_imdb: true, include_goofs: true, include_wikipedia: true,
-    omdb_api_key: "", omdb_api_key_set: true, include_omdb: true,
+    omdb_api_key: "", omdb_api_key_set: true, include_omdb: true, include_warnings: true,
     tv_episode_facts: true, tv_series_facts: false, hidden_wiki_sections: "", hidden_goof_kinds: "",
     wiki_lang: "en", verify_ssl: true, auth_mode: "none", allowed_users: "", admin_users: "",
     oidc_issuer: "", oidc_client_id: "", oidc_client_secret: "", oidc_client_secret_set: false,
@@ -178,7 +178,7 @@
   function display() {
     const hiddenWiki = settings.hidden_wiki_sections.split(","), hiddenGoofs = settings.hidden_goof_kinds.split(",");
     return {
-      sources: { imdb: settings.include_imdb, goofs: settings.include_goofs, wiki: settings.include_wikipedia, omdb: settings.include_omdb },
+      sources: { imdb: settings.include_imdb, goofs: settings.include_goofs, wiki: settings.include_wikipedia, omdb: settings.include_omdb, warnings: settings.include_warnings },
       scopes: { episode: settings.tv_episode_facts, series: settings.tv_series_facts },
       wiki: Object.fromEntries(GROUPS.wiki.map(([k]) => [k, !hiddenWiki.includes(k)])),
       goofs: Object.fromEntries(GROUPS.goofs.map(([k]) => [k, !hiddenGoofs.includes(k)])),
@@ -203,6 +203,8 @@
       imdb_id: id, imdb: unscope(data.imdb), goofs: unscope(data.goofs || []), wikipedia: data.wikipedia,
       episode_wikipedia: data.episode_wikipedia || null, omdb: data.omdb, errors: {},
       episode_imdb_id: q.get("season") ? ONE_STEP.episode.imdb_id : null,
+      // As IMDb's keywords and Parents Guide flag them.
+      warnings: id === "tt0063350" ? [{ scope: null, topics: ["Child harm"] }] : [],
     };
   }
 

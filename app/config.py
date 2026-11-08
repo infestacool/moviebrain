@@ -34,6 +34,7 @@ FIELDS = {
     "include_wikipedia": ("INCLUDE_WIKIPEDIA", True),
     "omdb_api_key": ("OMDB_API_KEY", ""),       # optional: adds ratings, awards and box office facts
     "include_omdb": ("INCLUDE_OMDB", True),
+    "include_warnings": ("INCLUDE_WARNINGS", True),  # suicide, self-harm, sexual assault, animal and child harm
     "tv_episode_facts": ("TV_EPISODE_FACTS", True),
     "tv_series_facts": ("TV_SERIES_FACTS", False),  # off: show trivia for the episode on screen
     # Comma-separated keys from WIKI_SECTIONS / GOOF_KINDS to leave out; blank shows everything.
@@ -204,7 +205,7 @@ def display_choices() -> dict:
     return {
         "sources": {
             "imdb": S.include_imdb, "goofs": S.include_goofs, "wiki": S.include_wikipedia,
-            "omdb": S.include_omdb and bool(S.omdb_api_key),
+            "omdb": S.include_omdb and bool(S.omdb_api_key), "warnings": S.include_warnings,
         },
         "scopes": {"episode": S.tv_episode_facts, "series": S.tv_series_facts},
         "wiki": {k: k not in hidden_wiki for k, _ in WIKI_SECTIONS},
