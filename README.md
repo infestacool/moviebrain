@@ -21,7 +21,7 @@ Trivia for whatever's playing on **Plex** or **Jellyfin**: IMDb trivia and goofs
 - **Spotlight**: one fact at a time, optional auto-advance.
 - **Second screen**: full-screen, hands-free facts for a tablet or old phone by the TV. It keeps the screen awake, follows what's playing, and opens directly from `http://<server>:8085/?screen` (bookmark it or add it to your home screen).
 - **Trivia, Goofs, Wikipedia**: full lists; spoilers blurred until tapped; plots skipped.
-- **Cast**: tap an actor to see their other titles **in your library**, plus their bio.
+- **Cast**: tap an actor to see their other titles **in your library**, plus their bio. 🪦 marks actors who have died.
 - **TV**: facts for the episode on screen, or toggle to the whole series.
 - **Nothing playing?** Tonight's pick: an unwatched movie from your library with a teaser fact. Or pick from recently added, or search with suggestions.
 - **Ratings & awards** (optional OMDb key).

@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import unicodedata
 
 import httpx
 
@@ -90,6 +91,58 @@ async def cast(source: str, item_id: str, show_id: str | None = None) -> list[di
             p["guest"] = bool(p.get("guest") or is_episode_list)
             people.append(p)
     return trivia._store(key, people[:MAX_CAST], ttl=LIBRARY_MINUTES * 60)
+
+
+# --- Who has died, from IMDb's credits ---------------------------------------
+
+CREDITS_QUERY = """
+query Credits($id: ID!) {
+  title(id: $id) {
+    credits(first: 250, filter: {categories: ["actor", "actress"]}) {
+      edges { node { name { nameText { text } deathDate { displayableProperty { value { plainText } } } } } }
+    }
+  }
+}
+"""
+
+
+def _name_key(name: str) -> str:
+    plain = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode()
+    return re.sub(r"[^a-z0-9]", "", plain.lower())
+
+
+async def _deaths(imdb_id: str) -> dict[str, str]:
+    """{name key: date of death} for a title's cast."""
+    key = f"imdb:deaths:{imdb_id}"
+    if (hit := trivia._cached(key)) is not None:
+        return hit
+    async with trivia._client() as client:
+        r = await client.post(
+            trivia.IMDB_GRAPHQL, json={"query": CREDITS_QUERY, "variables": {"id": imdb_id}},
+            headers={"x-imdb-client-name": "imdb-web-next", "content-type": "application/json"},
+        )
+        r.raise_for_status()
+    deaths = {}
+    for edge in ((trivia.graphql_data(r).get("title") or {}).get("credits") or {}).get("edges") or []:
+        name = (edge.get("node") or {}).get("name") or {}
+        died = (((name.get("deathDate") or {}).get("displayableProperty") or {}).get("value") or {}).get("plainText")
+        if died:
+            deaths[_name_key((name.get("nameText") or {}).get("text"))] = died
+    return trivia._store(key, deaths)
+
+
+async def mark_deaths(people: list[dict], imdb_ids: list[str]) -> list[dict]:
+    """Add "died" to each cast member IMDb lists as dead, using the titles' credits."""
+    ids = [i for i in imdb_ids if i and trivia.IMDB_ID.match(i)]
+    if not (people and ids and config.S.include_imdb):
+        return people
+    deaths: dict[str, str] = {}
+    for result in await asyncio.gather(*(_deaths(i) for i in ids), return_exceptions=True):
+        if isinstance(result, Exception):
+            log.warning("IMDb credits lookup failed: %s", result)
+        else:
+            deaths.update(result)
+    return [{**p, "died": deaths.get(_name_key(p["name"]))} for p in people]
 
 
 # --- Where else they appear in your library ---------------------------------

@@ -115,7 +115,7 @@ function render() {
   if (key !== state.triviaFor) loadTrivia(movie, key);
   const lib = libraryItem();
   const castKey = lib ? `${lib.source}:${lib.media_id}:${lib.item_id}` : null;
-  if (castKey !== state.castFor) loadCast(lib, castKey);
+  if (castKey !== state.castFor) loadCast(lib, castKey, movie);
   renderScreen();
 }
 
@@ -239,19 +239,7 @@ async function loadTrivia(movie, key) {
   $("error").hidden = true;
   renderTrivia();
 
-  const params = new URLSearchParams();
-  if (movie.imdb_id) params.set("imdb", movie.imdb_id);
-  if (movie.tmdb_id) params.set("tmdb", movie.tmdb_id);
-  if (movie.title) params.set("title", movie.title);
-  if (movie.year) params.set("year", movie.year);
-  if (movie.kind === "tv" && !movie.episode) params.set("kind", "tv"); // a show looked up on its own
-  if (movie.episode) {
-    params.set("kind", "tv");
-    if (movie.episode.imdb_id) params.set("ep_imdb", movie.episode.imdb_id);
-    if (movie.episode.season != null) params.set("season", movie.episode.season);
-    if (movie.episode.number != null) params.set("episode", movie.episode.number);
-  }
-
+  const params = titleParams(movie);
   try {
     const res = await fetch("/api/trivia?" + params);
     if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
@@ -656,13 +644,30 @@ function avatar(person, className = "avatar") {
   return box;
 }
 
-async function loadCast(session, key) {
+// What the server needs to find a title: its IDs, name and year, and the episode.
+function titleParams(movie, params = new URLSearchParams()) {
+  if (movie.imdb_id) params.set("imdb", movie.imdb_id);
+  if (movie.tmdb_id) params.set("tmdb", movie.tmdb_id);
+  if (movie.title) params.set("title", movie.title);
+  if (movie.year) params.set("year", movie.year);
+  if (movie.kind === "tv" && !movie.episode) params.set("kind", "tv"); // a show looked up on its own
+  if (movie.episode) {
+    params.set("kind", "tv");
+    if (movie.episode.imdb_id) params.set("ep_imdb", movie.episode.imdb_id);
+    if (movie.episode.season != null) params.set("season", movie.episode.season);
+    if (movie.episode.number != null) params.set("episode", movie.episode.number);
+  }
+  return params;
+}
+
+async function loadCast(session, key, movie) {
   state.castFor = key;
   state.cast = null;
   renderCast();
   if (!session) return;
   const params = new URLSearchParams({ source: session.source, item: session.media_id });
   if (session.kind === "episode") params.set("show", session.item_id);
+  if (movie) titleParams(movie, params);
   try {
     const res = await fetch("/api/cast?" + params);
     const data = await res.json();
@@ -673,6 +678,10 @@ async function loadCast(session, key) {
   renderCast();
 }
 
+function grave(died) {
+  return el("span", { className: "grave", title: `Died ${died}`, role: "img", ariaLabel: `died ${died}` }, "🪦");
+}
+
 function renderCast() {
   const grid = $("cast-grid");
   if (!state.cast) { grid.replaceChildren(el("p", { className: "loading" }, "Finding the cast…")); return; }
@@ -681,6 +690,7 @@ function renderCast() {
     const card = el("button", { className: "cast-card" });
     const who = el("span", { className: "who" });
     who.append(el("span", { className: "name" }, p.name));
+    if (p.died) who.querySelector(".name").append(grave(p.died));
     if (p.role) who.append(el("span", { className: "role" }, p.role));
     if (p.guest) who.append(el("span", { className: "tag" }, "Guest star"));
     card.append(avatar(p), who);
@@ -695,6 +705,8 @@ async function openPerson(p) {
   const dialog = $("person");
   $("person-photo").replaceWith(Object.assign(avatar(p, "avatar large"), { id: "person-photo" }));
   $("person-name").textContent = p.name;
+  $("person-name").dataset.who = p.name;
+  if (p.died) $("person-name").append(grave(p.died));
   $("person-meta").textContent = p.role ? `${p.role} in ${session.title}` : "";
   $("person-body").replaceChildren(el("p", { className: "loading" }, "Looking them up…"));
   if (dialog.showModal) dialog.showModal(); else dialog.setAttribute("open", "");
@@ -704,7 +716,7 @@ async function openPerson(p) {
     const res = await fetch("/api/person?" + params);
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
     const data = await res.json();
-    if ($("person-name").textContent === p.name) renderPerson(p, data, session);
+    if ($("person-name").dataset.who === p.name) renderPerson(p, data, session);
   } catch (e) {
     $("person-body").replaceChildren(el("p", { className: "error" }, "Couldn't look them up: " + e.message));
   }
@@ -713,6 +725,7 @@ async function openPerson(p) {
 function renderPerson(p, data, session) {
   const parts = [];
   const about = data.imdb;
+  if (about && about.died && !p.died) $("person-name").append(grave(about.died));
   if (about && (about.born || about.died)) {
     $("person-meta").textContent = [p.role && `${p.role} in ${session.title}`,
       about.born && `Born ${about.born}`, about.died && `died ${about.died}`].filter(Boolean).join(" · ");

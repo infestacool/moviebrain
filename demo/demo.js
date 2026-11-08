@@ -125,9 +125,9 @@
       trivia: ["Romero said he got the part simply by giving the best audition."] },
     p2: { born: "April 20, 1945", died: null, library: [], bio: "", trivia: ["Johnny's teasing line to her in the cemetery became one of horror's most quoted."] },
     p3: { born: "March 22, 1927", died: "September 22, 2007", library: [], bio: "", trivia: ["He also co-produced the film and helped with the makeup."] },
-    p4: { born: null, died: null, library: [], bio: "", trivia: ["She also helped with the film's makeup."] },
-    p5: { born: null, died: null, library: [], bio: "", trivia: [] },
-    p6: { born: null, died: null, library: [], bio: "", trivia: [] },
+    p4: { born: "December 17, 1933", died: "August 22, 2021", library: [], bio: "", trivia: ["She also helped with the film's makeup."] },
+    p5: { born: "January 16, 1945", died: "September 9, 1995", library: [], bio: "", trivia: [] },
+    p6: { born: "September 15, 1946", died: null, library: [], bio: "", trivia: [] },
     p7: { born: "October 4, 1957", died: null, library: [], bio: "", trivia: ["Her father, Karl Hardman, plays her on-screen father, Harry Cooper."] },
     p8: { born: "February 6, 1940", died: null, library: [], bio: "", trivia: ["He was also one of the film's producers."] },
     p9: { born: "November 23, 1917", died: "January 10, 2000", library: [], bio: "", trivia: ["He returned as host for the 1978 revival, The Next Step Beyond."] },
@@ -221,7 +221,7 @@
       case "/api/display": return display();
       case "/api/now-playing": return nowPlaying();
       case "/api/trivia": return trivia(q);
-      case "/api/cast": return { cast: (CAST[q.get("item")] || []).map(([id, name, role]) => ({ id, name, role, photo: null, guest: false })) };
+      case "/api/cast": return { cast: (CAST[q.get("item")] || []).map(([id, name, role]) => ({ id, name, role, photo: null, guest: false, died: PEOPLE[id].died })) };
       case "/api/person": return person(q);
       case "/api/recent": return { movies: RECENT };
       case "/api/pick":
