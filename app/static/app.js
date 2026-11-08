@@ -26,7 +26,16 @@ const state = {
   deck: [], deckPos: 0, autoplay: store("autoplay") !== "0", spotStarted: 0,
   interval: Number(store("interval")) || SPOTLIGHT_MS, // time per fact, ms
   screen: false, // second-screen mode
+  showRead: false, // trivia and goofs you've marked as read
 };
+
+// Facts marked as read, by IMDb item ID. Kept on this device only.
+const readFacts = new Set((() => { try { return JSON.parse(store("read") || "[]"); } catch { return []; } })());
+const isRead = (t) => readFacts.has(t.id);
+function setRead(t, read) {
+  if (read) readFacts.add(t.id); else readFacts.delete(t.id);
+  store("read", JSON.stringify([...readFacts].slice(-5000)));
+}
 
 function store(key, value) {
   try {
@@ -385,7 +394,7 @@ function trimSentences(text, max = 420) {
 // scope is "episode", "series", or undefined for movies.
 function imdbCards(kind, label, scope) {
   return shownItems(kind)
-    .filter((t) => t.scope === scope && (state.showSpoilers || !t.spoiler))
+    .filter((t) => t.scope === scope && (state.showSpoilers || !t.spoiler) && !isRead(t))
     .map((t) => {
       const category = kind === "goofs" && t.category ? " · " + t.category : "";
       return { source: label + category + (t.spoiler ? " · spoiler" : ""), text: t.text };
@@ -452,8 +461,7 @@ function renderTrivia() {
   });
   ["spotlight", "imdb", "goofs", "wiki", "cast"].forEach((t) => { $("tab-" + t).hidden = t !== state.tab; });
   for (const kind of ["imdb", "goofs"]) {
-    const n = shownItems(kind).length;
-    $(kind + "-count").textContent = n ? `(${n})` : "";
+    renderCount(kind);
   }
   renderGlance();
   renderSourceLinks();
@@ -561,9 +569,24 @@ function stepSpotlight(delta) {
   renderSpotlight();
 }
 
+for (const kind of ["imdb", "goofs"]) {
+  $(kind + "-read-toggle").onclick = () => {
+    state.showRead = !state.showRead;
+    renderImdbList("imdb", "IMDb trivia");
+    renderImdbList("goofs", "IMDb goofs");
+  };
+}
+
+function renderCount(kind) {
+  const n = shownItems(kind).filter((t) => !isRead(t)).length;
+  $(kind + "-count").textContent = n ? `(${n})` : "";
+}
+
 function renderImdbList(kind, label) {
   const list = $(kind + "-list");
   const items = shownItems(kind);
+  const toggle = $(kind + "-read-toggle");
+  toggle.hidden = true;
   if (!state.trivia) { list.replaceChildren(); return; }
   if (!items.length) {
     const why = state.trivia.errors[kind] ? "IMDb didn't respond."
@@ -572,8 +595,26 @@ function renderImdbList(kind, label) {
     list.replaceChildren(el("li", {}, why));
     return;
   }
-  list.replaceChildren(...items.map((t) => {
-    const li = el("li");
+  const readCount = items.filter(isRead).length;
+  toggle.hidden = !readCount;
+  toggle.textContent = state.showRead ? "Hide read" : `Show ${readCount} read`;
+  const visible = state.showRead ? items : items.filter((t) => !isRead(t));
+  if (!visible.length) {
+    list.replaceChildren(el("li", { className: "all-read" }, `You've read all ${items.length}.`));
+    return;
+  }
+  const rerender = () => { renderImdbList(kind, label); renderCount(kind); };
+  list.replaceChildren(...visible.map((t) => {
+    const li = el("li", { className: isRead(t) ? "read" : "" });
+    const mark = el("button", { className: "read-btn", type: "button" }, isRead(t) ? "↺" : "✓");
+    mark.title = mark.ariaLabel = isRead(t) ? "Mark as unread" : "Mark as read";
+    mark.onclick = () => {
+      setRead(t, !isRead(t));
+      if (state.showRead) { rerender(); return; }
+      li.classList.add("leaving");
+      setTimeout(rerender, 200);
+    };
+    li.append(mark);
     const label = [t.spoiler && "Spoiler", t.category && t.category !== "Uncategorized" && t.category]
       .filter(Boolean).join(" · ");
     if (label) li.append(el("div", { className: "badge" + (t.spoiler ? " spoiler" : "") }, label));

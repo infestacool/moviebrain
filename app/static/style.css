@@ -166,6 +166,20 @@ h1 { margin: 0 0 4px; font-size: clamp(1.5rem, 4vw, 2.4rem); line-height: 1.15; 
   color: var(--muted); margin-bottom: 4px;
 }
 .facts .badge.spoiler { color: var(--danger); }
+.facts li { position: relative; padding-right: 48px; transition: opacity .2s, transform .2s; }
+.facts li.all-read { padding-right: 16px; color: var(--muted); }
+.facts li.read { opacity: .5; }
+.facts li.leaving { opacity: 0; transform: translateX(16px); }
+.read-btn {
+  position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%;
+  border: 1px solid var(--surface-2); background: transparent; color: var(--muted); font-size: 15px; cursor: pointer;
+}
+.read-btn:hover { color: var(--accent); border-color: var(--accent); }
+.read-toggle {
+  display: block; margin: 14px auto 0; padding: 8px 14px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--surface-2); background: transparent; color: var(--muted); font: inherit; font-size: 14px;
+}
+.read-toggle:hover { color: var(--accent); border-color: var(--accent); }
 
 .spoiler-hidden { filter: blur(6px); cursor: pointer; user-select: none; transition: filter .2s; }
 .spoiler-hidden::selection { background: transparent; }
