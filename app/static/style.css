@@ -564,3 +564,26 @@ button.primary { background: var(--accent); color: var(--accent-text); font-weig
 .glance li.warning b { color: var(--danger); }
 .cw-hidden { filter: blur(5px); user-select: none; }
 .logo-warn { background: #ff6b6b; color: #fff; font-size: 18px; }
+/* Rating and Parents Guide */
+.glance li.clickable { cursor: pointer; }
+.glance li.rating b.cert, .cert {
+  display: inline-block; padding: 0 5px; margin-right: 2px; border: 1.5px solid currentColor; border-radius: 4px;
+  font-size: 11px; font-weight: 800; line-height: 15px; color: var(--text);
+}
+.guide-rating { margin: 0 0 6px; }
+.guide-rating .cert { margin-right: 6px; }
+.guide-warnings { margin: 0; font-weight: 600; color: var(--danger); }
+.guide-row { padding: 12px 0; border-top: 1px solid var(--surface-2); }
+.guide-row:first-of-type { border-top: 0; }
+.guide-head { display: flex; align-items: center; gap: 10px; }
+.guide-cat { flex: 1; min-width: 0; }
+.guide-sev { width: 72px; text-align: right; font-size: 13px; color: var(--muted); }
+.meter { display: inline-flex; gap: 3px; }
+.meter i { width: 18px; height: 6px; border-radius: 3px; background: var(--surface-2); }
+.meter i.on.s1 { background: #7ddc8a; }
+.meter i.on.s2 { background: #ffb347; }
+.meter i.on.s3 { background: var(--danger); }
+.guide-notes { margin-top: 8px; }
+.sensitive-para { margin: 0 0 10px; }
+.sensitive-para .badge { margin-bottom: 4px; }
+.settings label.dtdd-key { margin-top: 14px; }

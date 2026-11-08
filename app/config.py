@@ -35,6 +35,10 @@ FIELDS = {
     "omdb_api_key": ("OMDB_API_KEY", ""),       # optional: adds ratings, awards and box office facts
     "include_omdb": ("INCLUDE_OMDB", True),
     "include_warnings": ("INCLUDE_WARNINGS", True),  # suicide, self-harm, sexual assault, animal and child harm
+    "blur_sensitive_facts": ("BLUR_SENSITIVE_FACTS", True),  # facts that mention those topics
+    "blur_death_causes": ("BLUR_DEATH_CAUSES", True),        # cause of death on actor pages
+    "include_dtdd": ("INCLUDE_DTDD", False),     # DoesTheDogDie.com community warnings (needs a key)
+    "dtdd_api_key": ("DTDD_API_KEY", ""),
     "tv_episode_facts": ("TV_EPISODE_FACTS", True),
     "tv_series_facts": ("TV_SERIES_FACTS", False),  # off: show trivia for the episode on screen
     # Comma-separated keys from WIKI_SECTIONS / GOOF_KINDS to leave out; blank shows everything.
@@ -62,7 +66,7 @@ GOOF_KINDS = [
     ("crew", "Crew or equipment visible"), ("plot", "Plot holes"), ("character", "Character errors"),
     ("notgoofs", "Not really goofs"), ("other", "Other"),
 ]
-SECRET_FIELDS = {"plex_token", "jellyfin_api_key", "oidc_client_secret", "omdb_api_key"}
+SECRET_FIELDS = {"plex_token", "jellyfin_api_key", "oidc_client_secret", "omdb_api_key", "dtdd_api_key"}
 AUTH_MODES = ("none", "plex", "oidc", "authentik")
 OIDC_MODES = ("oidc", "authentik")  # both use the OpenID Connect flow
 CACHE_HOURS = float(os.environ.get("CACHE_HOURS", "168"))  # how long fetched facts are kept (7 days)
@@ -208,6 +212,7 @@ def display_choices() -> dict:
             "omdb": S.include_omdb and bool(S.omdb_api_key), "warnings": S.include_warnings,
         },
         "scopes": {"episode": S.tv_episode_facts, "series": S.tv_series_facts},
+        "blur": {"facts": S.include_warnings and S.blur_sensitive_facts, "death_causes": S.blur_death_causes},
         "wiki": {k: k not in hidden_wiki for k, _ in WIKI_SECTIONS},
         "goofs": {k: k not in hidden_goofs for k, _ in GOOF_KINDS},
     }

@@ -331,11 +331,25 @@ async function loadDisplayChoices() {
     const res = await fetch("/api/display");
     if (res.ok) state.filters = await res.json();
   } catch { /* keep showing everything */ }
+  state.sensitive = (state.filters.sensitive || []).map(([name, kw, note]) => [name, new RegExp(kw, "i"), new RegExp(note, "i")]);
   if (!state.tvView) {
     const { episode, series } = state.filters.scopes;
     state.tvView = series && !episode ? "series" : "episode";
   }
   applyTvView();
+}
+
+// Warning topics a piece of text mentions, when Settings blurs sensitive facts.
+function sensitiveIn(text) {
+  return (state.sensitive || []).filter(([, kw, note]) => kw.test(text) || note.test(text)).map(([name]) => name);
+}
+
+// A blurred block that reveals itself when tapped.
+function blurred(node, tip) {
+  node.classList.add("spoiler-hidden");
+  node.title = tip;
+  node.addEventListener("click", () => { node.classList.remove("spoiler-hidden"); node.title = ""; }, { once: true });
+  return node;
 }
 
 // kind is "imdb" (trivia) or "goofs", matching the API's field names.
@@ -396,7 +410,7 @@ function trimSentences(text, max = 420) {
 // scope is "episode", "series", or undefined for movies.
 function imdbCards(kind, label, scope) {
   return shownItems(kind)
-    .filter((t) => t.scope === scope && (state.showSpoilers || !t.spoiler) && !isRead(t))
+    .filter((t) => t.scope === scope && (state.showSpoilers || !t.spoiler) && !isRead(t) && !sensitiveIn(t.text).length)
     .map((t) => {
       const category = kind === "goofs" && t.category ? " · " + t.category : "";
       return { source: label + category + (t.spoiler ? " · spoiler" : ""), text: t.text };
@@ -417,7 +431,8 @@ function omdbCards(scope) {
 }
 
 function wikiCards(which) {
-  return wikiParagraphs(which).map((p) => ({ source: `Wikipedia · ${p.section}`, text: trimSentences(p.text) }));
+  return wikiParagraphs(which).filter((p) => !sensitiveIn(p.text).length)
+    .map((p) => ({ source: `Wikipedia · ${p.section}`, text: trimSentences(p.text) }));
 }
 
 // Two trivia facts, then a goof, then Wikipedia, then an OMDb fact, so every source shows up.
@@ -505,6 +520,12 @@ function renderSourceLinks() {
     ]));
   }
   if (omdbFor(scope)) lines.push(sourceLine("Ratings & awards", [{ text: "OMDb", href: "https://www.omdbapi.com/" }]));
+  const g = guideEntry();
+  if (g && (g.topics.length || g.guide.length)) {
+    const id = g.scope === "episode" ? t.episode_imdb_id : t.imdb_id;
+    lines.push(sourceLine("Content warnings", [{ text: "IMDb Parents Guide", href: `https://www.imdb.com/title/${id}/parentalguide/` }]));
+  }
+  if (t.dtdd && warningTopics().length) lines.push(dtddCredit());
 
   const lib = libraryItem();
   if (lib) lines.push(sourceLine("Cast & artwork", [{ text: `your ${lib.source === "plex" ? "Plex" : "Jellyfin"} server` }]));
@@ -520,10 +541,24 @@ const RATING_SHORT = { IMDb: "IMDb", "Rotten Tomatoes": "RT", Metacritic: "MC" }
 function warningTopics() {
   if (!state.filters.sources.warnings || !state.trivia) return [];
   const topics = new Set();
-  for (const w of state.trivia.warnings || []) {
-    if (!w.scope || state.filters.scopes[w.scope]) w.topics.forEach((t) => topics.add(t));
-  }
-  return [...topics];
+  const shown = (w) => w && (!w.scope || state.filters.scopes[w.scope]);
+  for (const w of state.trivia.warnings || []) if (shown(w)) w.topics.forEach((t) => topics.add(t));
+  if (shown(state.trivia.dtdd)) state.trivia.dtdd.topics.forEach((t) => topics.add(t));
+  return WARNING_ORDER.filter((t) => topics.has(t));
+}
+const WARNING_ORDER = ["Sexual assault", "Self-harm", "Suicide", "Animal harm", "Child harm"];
+
+// IMDb's rating and Parents Guide for what's on screen: the episode or the series in TV view.
+function guideEntry() {
+  if (!state.filters.sources.warnings || !state.trivia) return null;
+  const all = state.trivia.warnings || [];
+  const scope = isTv() ? state.tvView : null;
+  return all.find((w) => (w.scope || null) === scope) || all.find((w) => w.scope === "series") || all[0] || null;
+}
+
+function contentRating() {
+  const g = guideEntry();
+  return (state.movie && state.movie.content_rating) || (g && g.certificate && g.certificate.rating) || null;
 }
 
 function renderGlance() {
@@ -549,6 +584,18 @@ function renderGlance() {
     const n = Number(main.box_office.replace(/[^0-9]/g, ""));
     const short = n >= 1e9 ? `$${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `$${Math.round(n / 1e6)}M` : main.box_office;
     stat("Box office", short, `${main.box_office} at the US box office`);
+  }
+  // The age rating, which opens the Parents Guide.
+  const rating = contentRating(), guide = guideEntry();
+  if (rating || (guide && guide.guide.length)) {
+    const li = el("li", { className: "rating" + (guide ? " clickable" : "") });
+    if (rating) li.append(el("b", { className: "cert" }, rating));
+    if (guide) {
+      li.append(rating ? " Parents guide" : "Parents guide");
+      li.title = "Open the Parents Guide";
+      li.onclick = openGuide;
+    }
+    items.push(li);
   }
   // Content warnings, blurred like spoilers until tapped.
   const topics = warningTopics();
@@ -640,18 +687,24 @@ function renderImdbList(kind, label) {
       setTimeout(rerender, 200);
     };
     li.append(mark);
-    const label = [t.spoiler && "Spoiler", t.category && t.category !== "Uncategorized" && t.category]
-      .filter(Boolean).join(" · ");
-    if (label) li.append(el("div", { className: "badge" + (t.spoiler ? " spoiler" : "") }, label));
+    const sensitive = sensitiveIn(t.text);
+    const label = [t.spoiler && "Spoiler", sensitive.length && `Sensitive: ${sensitive.join(", ")}`,
+      t.category && t.category !== "Uncategorized" && t.category].filter(Boolean).join(" · ");
+    if (label) li.append(el("div", { className: "badge" + (t.spoiler || sensitive.length ? " spoiler" : "") }, label));
     const p = el("div", {}, t.text);
-    if (t.spoiler && !state.showSpoilers) {
-      p.className = "spoiler-hidden";
-      p.title = "Tap to reveal spoiler";
-      p.onclick = () => { p.className = ""; p.title = ""; };
-    }
+    if (sensitive.length) blurred(p, "Tap to reveal");
+    else if (t.spoiler && !state.showSpoilers) blurred(p, "Tap to reveal spoiler");
     li.append(p);
     return li;
   }));
+}
+
+function wikiPara(text) {
+  const sensitive = sensitiveIn(text);
+  if (!sensitive.length) return el("p", {}, text);
+  const box = el("div", { className: "sensitive-para" });
+  box.append(el("div", { className: "badge spoiler" }, `Sensitive: ${sensitive.join(", ")}`), blurred(el("p", {}, text), "Tap to reveal"));
+  return box;
 }
 
 function wikiArticle(w, heading) {
@@ -659,12 +712,12 @@ function wikiArticle(w, heading) {
   if (heading) parts.push(el("h2", { className: "wiki-article" }, heading));
   if (w.intro.length) {
     const sec = el("div", { className: "wiki-section" });
-    sec.append(el("h3", {}, "Overview"), ...w.intro.map((p) => el("p", {}, p)));
+    sec.append(el("h3", {}, "Overview"), ...w.intro.map(wikiPara));
     parts.push(sec);
   }
   for (const s of w.sections) {
     const sec = el("div", { className: "wiki-section" });
-    sec.append(el("h3", {}, s.title), ...s.paragraphs.map((p) => el("p", {}, p)));
+    sec.append(el("h3", {}, s.title), ...s.paragraphs.map(wikiPara));
     parts.push(sec);
   }
   parts.push(el("a", { className: "wiki-link", href: w.url, target: "_blank", rel: "noopener" }, `Read “${w.title}” on Wikipedia →`));
@@ -862,7 +915,11 @@ function renderPerson(p, data, session) {
     ].filter(([, v]) => v);
     if (rows.length) {
       const dl = el("dl", { className: "person-facts" });
-      for (const [k, v] of rows) dl.append(el("dt", {}, k), el("dd", {}, v));
+      for (const [k, v] of rows) {
+        const dd = el("dd", {}, v);
+        if (k === "Cause of death" && state.filters.blur && state.filters.blur.death_causes) blurred(dd, "Tap to reveal");
+        dl.append(el("dt", {}, k), dd);
+      }
       parts.push(dl);
     }
   }
@@ -1113,6 +1170,77 @@ $("tv-view").querySelectorAll("button").forEach((b) => {
 });
 
 $("person-close").onclick = () => $("person").close();
+
+// DoesTheDogDie asks for exactly this wording and link wherever its data shows.
+function dtddCredit() {
+  const line = el("div");
+  line.append(el("a", { href: "https://www.doesthedogdie.com", target: "_blank", rel: "noopener" }, "Powered by DoesTheDogDie.com"));
+  return line;
+}
+
+const SEVERITY = ["None", "Mild", "Moderate", "Severe"];
+
+function openGuide() {
+  const g = guideEntry();
+  if (!g) return;
+  const t = state.trivia;
+  $("guide-meta").textContent = state.movie ? state.movie.title + (state.movie.episode ? ` · ${episodeCode(state.movie.episode)}` : "") : "";
+  const parts = [];
+  const rating = contentRating();
+  if (rating) {
+    const p = el("p", { className: "guide-rating" });
+    p.append(el("b", { className: "cert" }, rating), g.certificate && g.certificate.reason ? " " + g.certificate.reason : "");
+    parts.push(p);
+  }
+
+  parts.push(el("h3", {}, "Content warnings"));
+  const topics = warningTopics();
+  if (topics.length) {
+    const p = el("p", { className: "guide-warnings" }, "⚠ " + topics.join(", "));
+    parts.push(state.showSpoilers ? p : blurred(p, "Tap to see content warnings"));
+  } else {
+    parts.push(el("p", { className: "empty-note" }, "None of the topics we watch for (sexual assault, self-harm, suicide, animal or child harm) are flagged."));
+  }
+
+  if (g.guide.length) {
+    parts.push(el("h3", {}, "Parents Guide"));
+    for (const c of g.guide) {
+      const row = el("div", { className: "guide-row" });
+      const level = Math.max(0, SEVERITY.indexOf(c.severity));
+      const meter = el("span", { className: "meter", ariaLabel: c.severity || "Not rated" });
+      for (let i = 1; i <= 3; i++) meter.append(el("i", { className: i <= level ? `on s${level}` : "" }));
+      const head = el("div", { className: "guide-head" });
+      head.append(el("span", { className: "guide-cat" }, c.category), meter, el("span", { className: "guide-sev" }, c.severity || "–"));
+      row.append(head);
+      if (c.notes.length) {
+        const list = el("ul", { className: "person-trivia guide-notes" });
+        list.hidden = true;
+        list.append(...c.notes.map((n) => {
+          const li = el("li", {}, n.text);
+          if (n.spoiler && !state.showSpoilers) blurred(li, "Tap to reveal spoiler");
+          else if (sensitiveIn(n.text).length) blurred(li, "Tap to reveal");
+          return li;
+        }));
+        const more = el("button", { className: "more-link", type: "button" }, `Show ${c.notes.length} ${c.notes.length === 1 ? "note" : "notes"}`);
+        more.onclick = () => {
+          list.hidden = !list.hidden;
+          more.textContent = list.hidden ? `Show ${c.notes.length} ${c.notes.length === 1 ? "note" : "notes"}` : "Hide notes";
+        };
+        row.append(more, list);
+      }
+      parts.push(row);
+    }
+  }
+
+  const id = g.scope === "episode" ? t.episode_imdb_id : t.imdb_id;
+  const footer = el("footer", { className: "source-links" });
+  footer.append(sourceLine("Sources", [{ text: "IMDb Parents Guide", href: `https://www.imdb.com/title/${id}/parentalguide/` }]));
+  if (t.dtdd) footer.append(dtddCredit());
+  parts.push(footer);
+  $("guide-body").replaceChildren(...parts);
+  $("guide").showModal();
+}
+$("guide-close").onclick = () => $("guide").close();
 
 // The header name opens search from anywhere. The search box and recently added shelf move
 // into the sheet while it's open, and back to the "Nothing playing" page after.

@@ -154,7 +154,10 @@ async def get_person(source: str, id: str, name: str):
 
 @app.get("/api/display")
 async def display():
-    return config.display_choices()
+    choices = config.display_choices()
+    # Patterns for blurring facts that mention the warning topics (they work as JavaScript regexes too).
+    choices["sensitive"] = [[name, kw, note] for name, kw, note in trivia.WARNING_TOPICS] if choices["blur"]["facts"] else []
+    return choices
 
 
 @app.get("/api/image/{source}/{item_id}/{kind}")
@@ -246,6 +249,15 @@ async def test_server(source: str, body: dict = Body(...)):
             title = await trivia.test_omdb_key(key)
         except Exception as e:
             raise HTTPException(400, f"OMDb said: {e}")
+        return {"ok": True, "server": f"Key works (looked up {title})"}
+    if source == "dtdd":
+        key = (body.get("key") or config.S.dtdd_api_key).strip()
+        if not key:
+            raise HTTPException(400, "Enter a key first.")
+        try:
+            title = await trivia.test_dtdd_key(key)
+        except Exception as e:
+            raise HTTPException(400, f"DoesTheDogDie said: {e}")
         return {"ok": True, "server": f"Key works (looked up {title})"}
     if source not in ("plex", "jellyfin"):
         raise HTTPException(404)

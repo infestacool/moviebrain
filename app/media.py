@@ -97,6 +97,7 @@ async def plex_sessions(client: httpx.AsyncClient) -> list[dict]:
             "source": "plex",
             **info,
             "tagline": m.get("tagline"),
+            "content_rating": m.get("contentRating"),
             "imdb_id": ids.get("imdb"),
             "tmdb_id": ids.get("tmdb"),
             "user": user,
@@ -173,6 +174,7 @@ async def jellyfin_sessions(client: httpx.AsyncClient) -> list[dict]:
             "source": "jellyfin",
             **info,
             "tagline": (item.get("Taglines") or [None])[0],
+            "content_rating": item.get("OfficialRating"),
             "imdb_id": ids.get("imdb"),
             "tmdb_id": ids.get("tmdb"),
             "user": user,
@@ -221,7 +223,7 @@ async def recently_added(limit: int = 12) -> list[dict]:
         r.raise_for_status()
         items = [m for m in r.json().get("MediaContainer", {}).get("Metadata") or [] if m.get("type") == "movie"]
         return [{"source": "plex", "item_id": str(m["ratingKey"]), "media_id": str(m["ratingKey"]),
-                 "title": m.get("title"), "year": m.get("year"),
+                 "title": m.get("title"), "year": m.get("year"), "content_rating": m.get("contentRating"),
                  "imdb_id": _parse_guids(m.get("Guid")).get("imdb"), "tmdb_id": _parse_guids(m.get("Guid")).get("tmdb")}
                 for m in items[:limit]]
 
@@ -230,10 +232,10 @@ async def recently_added(limit: int = 12) -> list[dict]:
             return []
         r = await client.get(f"{config.S.jellyfin_url}/Items", headers={"Authorization": f'MediaBrowser Token="{config.S.jellyfin_api_key}"'},
                              params={"IncludeItemTypes": "Movie", "Recursive": "true", "SortBy": "DateCreated",
-                                     "SortOrder": "Descending", "Limit": limit, "Fields": "ProviderIds,ProductionYear"})
+                                     "SortOrder": "Descending", "Limit": limit, "Fields": "ProviderIds,ProductionYear,OfficialRating"})
         r.raise_for_status()
         return [{"source": "jellyfin", "item_id": i["Id"], "media_id": i["Id"], "title": i.get("Name"),
-                 "year": i.get("ProductionYear"),
+                 "year": i.get("ProductionYear"), "content_rating": i.get("OfficialRating"),
                  "imdb_id": _provider_ids(i).get("imdb"), "tmdb_id": _provider_ids(i).get("tmdb")}
                 for i in r.json().get("Items") or [] if i.get("Name")]
 
@@ -270,7 +272,7 @@ async def unwatched_movie() -> dict | None:
             for m in r.json().get("MediaContainer", {}).get("Metadata") or []:
                 ids = _parse_guids(m.get("Guid"))
                 return {"source": "plex", "item_id": str(m["ratingKey"]), "media_id": str(m["ratingKey"]),
-                        "title": m.get("title"), "year": m.get("year"), "tagline": m.get("tagline"),
+                        "title": m.get("title"), "year": m.get("year"), "tagline": m.get("tagline"), "content_rating": m.get("contentRating"),
                         "imdb_id": ids.get("imdb"), "tmdb_id": ids.get("tmdb")}
         return None
 
@@ -291,7 +293,7 @@ async def unwatched_movie() -> dict | None:
         r.raise_for_status()
         for i in r.json().get("Items") or []:
             return {"source": "jellyfin", "item_id": i["Id"], "media_id": i["Id"], "title": i.get("Name"),
-                    "year": i.get("ProductionYear"), "tagline": (i.get("Taglines") or [None])[0],
+                    "year": i.get("ProductionYear"), "tagline": (i.get("Taglines") or [None])[0], "content_rating": i.get("OfficialRating"),
                     "imdb_id": _provider_ids(i).get("imdb"), "tmdb_id": _provider_ids(i).get("tmdb")}
         return None
 

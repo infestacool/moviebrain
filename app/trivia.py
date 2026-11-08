@@ -495,8 +495,12 @@ async def _wikipedia(key: str, wiki_title: str) -> dict:
 WARNINGS_QUERY = """
 query Warnings($id: ID!) {
   title(id: $id) {
+    certificate { rating ratingReason }
     keywords(first: 250) { edges { node { keyword { text { text } } } } }
-    parentsGuide { categories { guideItems(first: 50) { edges { node { text { plainText } } } } } }
+    parentsGuide { categories {
+      category { text } severity { text }
+      guideItems(first: 50) { edges { node { isSpoiler text { plainText } } } }
+    } }
   }
 }
 """
@@ -531,8 +535,9 @@ def warning_topics(keywords: list[str], notes: list[str]) -> list[str]:
             if re.search(kw, words) or sum(bool(re.search(note, n)) for n in notes) >= 2]
 
 
-async def content_warnings(imdb_id: str) -> list[str]:
-    key = f"imdb:warnings2:{imdb_id}"
+async def content_warnings(imdb_id: str) -> dict:
+    """Warning topics, the rating certificate and the Parents Guide, from IMDb."""
+    key = f"imdb:warnings3:{imdb_id}"
     if (hit := _cached(key)) is not None:
         return hit
     async with _client() as client:
@@ -542,10 +547,75 @@ async def content_warnings(imdb_id: str) -> list[str]:
     t = graphql_data(r).get("title") or {}
     keywords = [((e.get("node") or {}).get("keyword") or {}).get("text", {}).get("text") or ""
                 for e in (t.get("keywords") or {}).get("edges") or []]
-    notes = [((e.get("node") or {}).get("text") or {}).get("plainText") or ""
-             for c in ((t.get("parentsGuide") or {}).get("categories") or [])
-             for e in (c.get("guideItems") or {}).get("edges") or []]
-    return _store(key, warning_topics(keywords, notes))
+    guide = []
+    for c in (t.get("parentsGuide") or {}).get("categories") or []:
+        guide.append({
+            "category": (c.get("category") or {}).get("text"),
+            "severity": (c.get("severity") or {}).get("text"),
+            "notes": [{"text": n["text"]["plainText"], "spoiler": bool(n.get("isSpoiler"))}
+                      for e in (c.get("guideItems") or {}).get("edges") or []
+                      if ((n := e.get("node") or {}).get("text") or {}).get("plainText")],
+        })
+    cert = t.get("certificate") or {}
+    return _store(key, {
+        "topics": warning_topics(keywords, [n["text"] for g in guide for n in g["notes"]]),
+        "certificate": {"rating": cert.get("rating"), "reason": cert.get("ratingReason")} if cert.get("rating") else None,
+        "guide": [g for g in guide if g["category"]],
+    })
+
+
+# DoesTheDogDie topics that count toward each warning ("someone dies by suicide", "a dog dies"…).
+DTDD_API = "https://www.doesthedogdie.com/api/v3"
+DTDD_TOPICS = [
+    ("Sexual assault", r"sexual(?:ly)? (?:assault|abuse)|\brap(?:e|ed)\b|molest"),
+    ("Self-harm", r"self[ -]?harm|cuts? (?:them|her|him)sel"),
+    ("Suicide", r"suicid"),
+    ("Animal harm", r"\b(?:dog|cat|horse|animal|pet)s? (?:die|dies|is hurt|are hurt|is abused|are abused|is harmed)|animal (?:abuse|cruelty)"),
+    ("Child harm", r"\b(?:kid|child|children|baby|babies)s? (?:die|dies|is abused|are abused|is hurt|are hurt|is harmed)|child abuse"),
+]
+
+
+async def _dtdd_get(client: httpx.AsyncClient, path: str, key: str, **params) -> object:
+    r = await client.get(f"{DTDD_API}{path}", params=params, headers={"X-API-KEY": key})
+    if r.status_code == 401:
+        raise RuntimeError("the key was not accepted")
+    r.raise_for_status()
+    return r.json()
+
+
+async def test_dtdd_key(key: str) -> str:
+    async with _client() as client:
+        items = await _dtdd_get(client, "/items", key, imdb="tt0050798")
+    return (items[0] if items else {}).get("name", "a title")
+
+
+async def dtdd_warnings(imdb_id: str) -> dict | None:
+    """Warning topics most voters said yes to on DoesTheDogDie.com, if a key is set."""
+    key = config.S.dtdd_api_key
+    if not (config.S.include_dtdd and key and IMDB_ID.match(imdb_id or "")):
+        return None
+    cache_key = f"dtdd2:{imdb_id}"
+    if (hit := _cached(cache_key)) is not None:
+        return hit or None
+    async with _client() as client:
+        items = await _dtdd_get(client, "/items", key, imdb=imdb_id)
+        if not items:
+            _store(cache_key, {})
+            return None
+        item = await _dtdd_get(client, f"/items/{int(items[0]['id'])}", key)
+    topics, details = set(), []
+    for stat in item.get("topicItemStats") or []:
+        yes, no = stat.get("yesSum") or 0, stat.get("noSum") or 0
+        if yes < 3 or yes < 2 * no:  # a clear majority, not a split vote
+            continue
+        name = (stat.get("topicName") or "").lower()
+        for topic, pattern in DTDD_TOPICS:
+            if re.search(pattern, name):
+                topics.add(topic)
+                details.append({"topic": stat.get("topicName"), "yes": yes, "no": no})
+    out = {"topics": [t for t, _ in DTDD_TOPICS if t in topics], "details": details,
+           "url": f"https://www.doesthedogdie.com/media/{int(item['id'])}"}
+    return _store(cache_key, out)
 
 
 async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None, year: int | None,
@@ -558,7 +628,7 @@ async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None
     ids = await resolve(imdb_id, tmdb_id, title, year, "tv" if is_tv else "movie")
     out: dict = {
         "imdb_id": ids["imdb_id"], "imdb": None, "goofs": None, "wikipedia": None,
-        "episode_wikipedia": None, "omdb": None, "warnings": [], "errors": {},
+        "episode_wikipedia": None, "omdb": None, "warnings": [], "dtdd": None, "errors": {},
     }
 
     episode_imdb = None
@@ -589,7 +659,10 @@ async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None
         if episode_imdb:
             tasks.append(("warnings", "episode", content_warnings(episode_imdb)))
         if ids["imdb_id"]:
-            tasks.append(("warnings", "series" if is_tv and episode else None, content_warnings(ids["imdb_id"])))
+            scope = "series" if is_tv and episode else None
+            tasks.append(("warnings", scope, content_warnings(ids["imdb_id"])))
+            if config.S.include_dtdd and config.S.dtdd_api_key:  # whole titles only; DoesTheDogDie rates shows, not episodes
+                tasks.append(("dtdd", scope, dtdd_warnings(ids["imdb_id"])))
     if ids["wiki_title"] and config.S.include_wikipedia:
         tasks.append(("wikipedia", None, wikipedia(ids["wiki_title"])))
     if episode_imdb and config.S.include_wikipedia:
@@ -604,7 +677,10 @@ async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None
             items = [{**item, "scope": scope} for item in res] if scope else res
             out[name] = (out[name] or []) + items
         elif name == "warnings":
-            out["warnings"].append({"scope": scope, "topics": res})
+            out["warnings"].append({"scope": scope, **res})
+        elif name == "dtdd":
+            if res:
+                out["dtdd"] = {"scope": scope, **res}
         elif name == "omdb":
             if res:
                 out["omdb"] = (out.get("omdb") or []) + [{**res, "scope": scope}]

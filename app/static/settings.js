@@ -203,19 +203,19 @@ field("oidc_name").addEventListener("input", showAuthPanels);
 document.querySelectorAll("[data-test]").forEach((btn) => {
   btn.onclick = async () => {
     const source = btn.dataset.test;
-    const keyName = { plex: "plex_token", jellyfin: "jellyfin_api_key", omdb: "omdb_api_key" }[source];
+    const keyName = { plex: "plex_token", jellyfin: "jellyfin_api_key", omdb: "omdb_api_key", dtdd: "dtdd_api_key" }[source];
     setResult("test-" + source, true, "Testing…");
     const badge = $("status-" + source);
     try {
       const r = await api("/api/settings/test/" + source, {
         method: "POST",
         body: JSON.stringify({
-          url: source === "omdb" ? "" : field(source + "_url").value.trim(),
+          url: source === "omdb" || source === "dtdd" ? "" : field(source + "_url").value.trim(),
           key: field(keyName).value.trim(),
           verify_ssl: field("verify_ssl").checked,
         }),
       });
-      setResult("test-" + source, true, (source === "omdb" ? "✓ " : "✓ Connected to ") + r.server);
+      setResult("test-" + source, true, (source === "omdb" || source === "dtdd" ? "✓ " : "✓ Connected to ") + r.server);
       if (badge) Object.assign(badge, { textContent: "Connected", className: "status ok" }).dataset.tested = "1";
     } catch (e) {
       setResult("test-" + source, false, "✗ " + e.message);

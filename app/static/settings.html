@@ -121,6 +121,16 @@
               <div class="tile-title"><h3>Content warnings</h3><p>A blurred alert when IMDb's keywords or Parents Guide mention sexual assault, self-harm, suicide, or animals or children being hurt.</p></div>
               <label class="switch"><input type="checkbox" name="include_warnings"><span aria-hidden="true"></span><b class="sr">Content warnings</b></label>
             </div>
+            <div class="tile-body">
+              <div class="toggles">
+                <label class="switch-row"><span>Blur facts that mention these topics<small>Tap a blurred fact to read it. Spotlight skips them.</small></span><span class="switch"><input type="checkbox" name="blur_sensitive_facts"><span aria-hidden="true"></span></span></label>
+                <label class="switch-row"><span>Blur causes of death<small>On actor pages.</small></span><span class="switch"><input type="checkbox" name="blur_death_causes"><span aria-hidden="true"></span></span></label>
+                <label class="switch-row"><span>Also use DoesTheDogDie.com<small>Community-voted warnings, added to IMDb's. Needs a free key.</small></span><span class="switch"><input type="checkbox" name="include_dtdd"><span aria-hidden="true"></span></span></label>
+              </div>
+              <label class="dtdd-key">DoesTheDogDie.com API key <input name="dtdd_api_key" type="password" data-secret placeholder="Required for DoesTheDogDie"></label>
+              <p class="hint">Free for personal use at <a href="https://www.doesthedogdie.com/api" target="_blank" rel="noopener">doesthedogdie.com/api</a> (5,000 lookups a month).</p>
+              <div class="row"><button type="button" class="secondary" data-test="dtdd">Test key</button><span class="test-result" id="test-dtdd"></span></div>
+            </div>
           </article>
         </div>
 
