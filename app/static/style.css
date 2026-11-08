@@ -587,3 +587,18 @@ button.primary { background: var(--accent); color: var(--accent-text); font-weig
 .sensitive-para { margin: 0 0 10px; }
 .sensitive-para .badge { margin-bottom: 4px; }
 .settings label.dtdd-key { margin-top: 14px; }
+/* Settings: content warning topics */
+.chips.tags { margin-bottom: 10px; color: var(--muted); font-size: 14px; }
+.tag {
+  display: inline-flex; align-items: center; gap: 4px; padding: 5px 6px 5px 12px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--text); font-size: 14px; font-weight: 600;
+}
+.tag button {
+  width: 22px; height: 22px; border-radius: 50%; border: 0; background: transparent; color: var(--muted);
+  font-size: 16px; line-height: 1; cursor: pointer;
+}
+.tag button:hover { background: var(--surface-2); color: var(--text); }
+.tag-add { gap: 8px; margin-bottom: 6px; }
+.tag-add input { flex: 1; min-width: 0; }
+.hint .link-reset { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; }
+.hint .link-reset[hidden] { display: none; }

@@ -165,6 +165,7 @@
     jellyfin_url: "", jellyfin_api_key: "", jellyfin_api_key_set: false, users: "",
     include_imdb: true, include_goofs: true, include_wikipedia: true,
     omdb_api_key: "", omdb_api_key_set: true, include_omdb: true, include_warnings: true,
+    warning_topics: "Sexual assault, Self-harm, Suicide, Animal harm, Child harm",
     blur_sensitive_facts: true, blur_death_causes: true, include_dtdd: false, dtdd_api_key: "", dtdd_api_key_set: false,
     tv_episode_facts: true, tv_series_facts: false, hidden_wiki_sections: "", hidden_goof_kinds: "",
     wiki_lang: "en", verify_ssl: true, auth_mode: "none", allowed_users: "", admin_users: "",
@@ -184,8 +185,23 @@
       wiki: Object.fromEntries(GROUPS.wiki.map(([k]) => [k, !hiddenWiki.includes(k)])),
       goofs: Object.fromEntries(GROUPS.goofs.map(([k]) => [k, !hiddenGoofs.includes(k)])),
       blur: { facts: settings.include_warnings && settings.blur_sensitive_facts, death_causes: settings.blur_death_causes },
-      sensitive: settings.include_warnings && settings.blur_sensitive_facts ? SENSITIVE : [],
+      topics: topicList(),
+      sensitive: settings.include_warnings && settings.blur_sensitive_facts ? topicList().map(topicPattern) : [],
     };
+  }
+  const DEFAULT_TOPICS = ["Sexual assault", "Self-harm", "Suicide", "Animal harm", "Child harm"];
+  const topicList = () => settings.warning_topics.split(",").map((t) => t.trim()).filter(Boolean);
+  // Built-in topics use the server's patterns; a typed one matches as a word, singular or plural.
+  function topicPattern(topic) {
+    const built = SENSITIVE.find(([name]) => name.toLowerCase() === topic.toLowerCase());
+    if (built) return [topic, built[1], built[2]];
+    const words = topic.toLowerCase().split(/\s+/);
+    const last = words[words.length - 1];
+    if (last.length > 3 && last.endsWith("s") && !last.endsWith("ss")) {
+      words[words.length - 1] = /(ches|shes|xes|sses)$/.test(last) ? last.slice(0, -2) : last.slice(0, -1);
+    }
+    const p = "\\b" + words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("[\\s-]+") + "(?:s|es)?\\b";
+    return [topic, p, p];
   }
   // The server's patterns for facts that mention a warning topic (app/trivia.py WARNING_TOPICS).
   const SENSITIVE = [["Sexual assault", "\\b(?:rape|raped|rapes|raping|rapist|sexual (?:assault|abuse|violence)|molest\\w*)\\b", "\\b(?:rape[ds]?|raping|rapist|sexual(?:ly)? (?:assault|abuse)\\w*|molest\\w*)\\b"], ["Self-harm", "\\bself[ -]?(?:harm|mutilation|injury|inflicted)|\\bcutting (?:oneself|herself|himself)|\\bslit wrists?", "\\bself[ -]?harm|\\b(?:slits?|cuts?|cutting) (?:on )?(?:her|his|their) (?:own )?wrists?|\\bcuts? on (?:her|his|their) wrists?|\\bcutting (?:her|him|them)sel(?:f|ves)"], ["Suicide", "\\bsuicid(?!e (?:mission|squad|bomb|run|vest|attack|bombing|bomber|drone|jockey|doors?))", "\\bcommits? suicide|\\b(?:kills?|killed|hangs?|hanged|shoots?|shot) (?:him|her|them)sel(?:f|ves)\\b|\\bsuicid(?!e (?:mission|squad|bomb))"], ["Animal harm", "\\banimal (?:cruelty|abuse|death|killing|torture)|\\b(?:killing|shooting|death of|dead|injured|killed|shot|kills|torturing|abused|drowning|beating) (?:a |an |the )?(?:dog|cat|horse|puppy|kitten|pet|pony|animal)s?\\b|\\b(?:dog|cat|horse|puppy|kitten|pet|pony|animal)s? (?:killed|dies|death|shot|abuse|cruelty|torture|is killed|gets killed|put down)\\b|\\brabid dog", "\\b(?:dog|cat|horse|puppy|kitten|pet|pony|animal)s? (?:is |are |gets? )?(?:shot|killed|stabbed|beaten|tortured|euthani[sz]ed|put down|run over)\\b|\\b(?:shoots?|kills?|stabs?|beats?|tortures?|euthani[sz]es?|drowns?|runs? over) (?:a|an|the|his|her|their) (?:dog|cat|horse|puppy|kitten|pet|pony|animal)s?\\b|\\banimal (?:cruelty|abuse)"], ["Child harm", "\\b(?:child|children|kid|baby|infant|boy|girl)(?:'s)? (?:abuse|murder|killed|death|dies|in peril|torture|endangerment|killer|murderer)\\b|\\b(?:killing|murder|death|abuse|injured|abused|dead|murdered|killed) (?:of )?(?:a |the )?(?:child|children|kid|kids|baby|babies|infant|toddler|son|daughter)\\b|\\binfanticide|\\bfilicide|\\bchild sexual abuse", "\\b(?:child|children|kid|kids|baby|babies|infant|toddler|son|daughter) (?:is |are |gets? )?(?:shot|killed|stabbed|beaten|abused|tortured|murdered|dies|drowns)\\b|\\b(?:shoots?|kills?|stabs?|beats?|abuses?|murders?|drowns?) (?:a|the|his|her|their) (?:child|children|kid|kids|baby|babies|infant|toddler|son|daughter)\\b|\\bchild abuse"]];
@@ -274,7 +290,7 @@
       case "/api/settings":
         if (method === "POST") Object.assign(settings, Object.fromEntries(Object.entries(body).filter(([, v]) => v !== "")));
         return method === "POST" ? { ok: true, settings, cleared: [] }
-          : { settings, groups: GROUPS, auth_disabled_by_env: false, callback_urls: { plex: location.origin + "/auth/plex/callback", oidc: location.origin + "/auth/oidc/callback" } };
+          : { settings, groups: GROUPS, default_warning_topics: DEFAULT_TOPICS, auth_disabled_by_env: false, callback_urls: { plex: location.origin + "/auth/plex/callback", oidc: location.origin + "/auth/oidc/callback" } };
       case "/api/settings/cache": case "/api/settings/cache/clear":
         return { entries: path.endsWith("clear") ? 0 : 24, bytes: path.endsWith("clear") ? 0 : 1468000, max_bytes: 209715200, days: 7 };
       default:

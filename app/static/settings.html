@@ -118,10 +118,18 @@
           <article class="tile source" data-source="include_warnings">
             <div class="tile-head">
               <span class="logo logo-warn" aria-hidden="true">⚠</span>
-              <div class="tile-title"><h3>Content warnings</h3><p>A blurred alert when IMDb's keywords or Parents Guide mention sexual assault, self-harm, suicide, or animals or children being hurt.</p></div>
+              <div class="tile-title"><h3>Content warnings</h3><p>A blurred alert when IMDb's keywords or Parents Guide mention any of these topics.</p></div>
               <label class="switch"><input type="checkbox" name="include_warnings"><span aria-hidden="true"></span><b class="sr">Content warnings</b></label>
             </div>
             <div class="tile-body">
+              <p class="sub">Topics</p>
+              <div class="chips tags" id="topic-tags"></div>
+              <input type="hidden" name="warning_topics">
+              <div class="row tag-add">
+                <input id="topic-new" maxlength="40" placeholder="Add a topic, e.g. spiders" autocomplete="off" aria-label="Add a topic">
+                <button type="button" class="secondary" id="topic-add">Add</button>
+              </div>
+              <p class="hint">Any word or phrase works; it's matched in IMDb keywords, Parents Guide notes and facts. <button type="button" class="link-reset" id="topic-reset">Reset to defaults</button></p>
               <div class="toggles">
                 <label class="switch-row"><span>Blur facts that mention these topics<small>Tap a blurred fact to read it. Spotlight skips them.</small></span><span class="switch"><input type="checkbox" name="blur_sensitive_facts"><span aria-hidden="true"></span></span></label>
                 <label class="switch-row"><span>Blur causes of death<small>On actor pages.</small></span><span class="switch"><input type="checkbox" name="blur_death_causes"><span aria-hidden="true"></span></span></label>

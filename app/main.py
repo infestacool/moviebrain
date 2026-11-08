@@ -156,7 +156,7 @@ async def get_person(source: str, id: str, name: str):
 async def display():
     choices = config.display_choices()
     # Patterns for blurring facts that mention the warning topics (they work as JavaScript regexes too).
-    choices["sensitive"] = [[name, kw, note] for name, kw, note in trivia.WARNING_TOPICS] if choices["blur"]["facts"] else []
+    choices["sensitive"] = [list(t) for t in trivia.topic_patterns()] if choices["blur"]["facts"] else []
     return choices
 
 
@@ -177,6 +177,7 @@ async def get_settings(request: Request):
     return {
         "settings": config.public_view(),
         "groups": {"wiki": config.WIKI_SECTIONS, "goofs": config.GOOF_KINDS},
+        "default_warning_topics": config.DEFAULT_WARNING_TOPICS,
         "auth_disabled_by_env": config.AUTH_DISABLE,
         "callback_urls": {
             "plex": f"{auth.base_url(request)}/auth/plex/callback",
@@ -217,6 +218,9 @@ async def save_settings(changes: dict = Body(...)):
                         ("oidc_issuer", "Issuer URL"), ("public_url", "Public URL")):
         if get(name) and not str(get(name)).startswith(("http://", "https://")):
             raise HTTPException(400, f"{label} must start with http:// or https://")
+
+    if len(str(get("warning_topics") or "")) > config.MAX_TOPICS * (config.MAX_TOPIC_LENGTH + 2):
+        raise HTTPException(400, f"Too many content warning topics (up to {config.MAX_TOPICS}).")
 
     mode = get("auth_mode")
     if mode == "plex" and not (has_plex or get("allowed_users")):

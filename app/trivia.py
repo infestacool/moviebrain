@@ -526,18 +526,45 @@ WARNING_TOPICS = [
 ]
 
 
+def _custom_pattern(topic: str) -> str:
+    """A typed topic ("spiders", "needle") matches as a whole word or phrase, singular or plural."""
+    words = topic.lower().split()
+    # "spiders" also finds "spider": the last word's plural ending is optional.
+    if len(words[-1]) > 3 and words[-1].endswith("s") and not words[-1].endswith("ss"):
+        words[-1] = words[-1][:-2] if words[-1].endswith(("ches", "shes", "xes", "sses")) else words[-1][:-1]
+    return r"\b" + r"[\s-]+".join(re.escape(w) for w in words) + r"(?:s|es)?\b"
+
+
+def topic_patterns() -> list[tuple[str, str, str]]:
+    """(name, keyword pattern, sentence pattern) for each topic chosen in Settings."""
+    built_in = {name.lower(): (kw, note) for name, kw, note in WARNING_TOPICS}
+    out = []
+    for topic in config.warning_topics():
+        kw, note = built_in.get(topic.lower()) or (_custom_pattern(topic),) * 2
+        out.append((topic, kw, note))
+    return out
+
+
 def warning_topics(keywords: list[str], notes: list[str]) -> list[str]:
-    """Which WARNING_TOPICS appear in a title's keywords or Parents Guide notes."""
+    """Which chosen topics appear in a title's keywords or Parents Guide notes."""
     words = " | ".join(k.lower() for k in keywords)
     notes = [n.lower() for n in notes]
     # A keyword is enough; notes need two mentions, since one can be in passing ("mistaken for…").
-    return [name for name, kw, note in WARNING_TOPICS
+    return [name for name, kw, note in topic_patterns()
             if re.search(kw, words) or sum(bool(re.search(note, n)) for n in notes) >= 2]
 
 
 async def content_warnings(imdb_id: str) -> dict:
     """Warning topics, the rating certificate and the Parents Guide, from IMDb."""
-    key = f"imdb:warnings3:{imdb_id}"
+    raw = await _content_raw(imdb_id)
+    return {
+        "topics": warning_topics(raw["keywords"], [n["text"] for g in raw["guide"] for n in g["notes"]]),
+        "certificate": raw["certificate"], "guide": raw["guide"],
+    }
+
+
+async def _content_raw(imdb_id: str) -> dict:
+    key = f"imdb:warnings4:{imdb_id}"
     if (hit := _cached(key)) is not None:
         return hit
     async with _client() as client:
@@ -558,7 +585,7 @@ async def content_warnings(imdb_id: str) -> dict:
         })
     cert = t.get("certificate") or {}
     return _store(key, {
-        "topics": warning_topics(keywords, [n["text"] for g in guide for n in g["notes"]]),
+        "keywords": keywords,
         "certificate": {"rating": cert.get("rating"), "reason": cert.get("ratingReason")} if cert.get("rating") else None,
         "guide": [g for g in guide if g["category"]],
     })
@@ -594,7 +621,23 @@ async def dtdd_warnings(imdb_id: str) -> dict | None:
     key = config.S.dtdd_api_key
     if not (config.S.include_dtdd and key and IMDB_ID.match(imdb_id or "")):
         return None
-    cache_key = f"dtdd2:{imdb_id}"
+    raw = await _dtdd_raw(key, imdb_id)
+    if not raw:
+        return None
+    built_in = {name.lower(): pattern for name, pattern in DTDD_TOPICS}
+    topics, details = [], []
+    for topic in config.warning_topics():
+        pattern = built_in.get(topic.lower()) or _custom_pattern(topic)
+        hits = [s for s in raw["stats"] if re.search(pattern, s["topic"].lower())]
+        if hits:
+            topics.append(topic)
+            details += hits
+    return {"topics": topics, "details": details, "url": raw["url"]}
+
+
+async def _dtdd_raw(key: str, imdb_id: str) -> dict | None:
+    """Every topic most voters said yes to, for a title."""
+    cache_key = f"dtdd3:{imdb_id}"
     if (hit := _cached(cache_key)) is not None:
         return hit or None
     async with _client() as client:
@@ -603,19 +646,12 @@ async def dtdd_warnings(imdb_id: str) -> dict | None:
             _store(cache_key, {})
             return None
         item = await _dtdd_get(client, f"/items/{int(items[0]['id'])}", key)
-    topics, details = set(), []
+    stats = []
     for stat in item.get("topicItemStats") or []:
         yes, no = stat.get("yesSum") or 0, stat.get("noSum") or 0
-        if yes < 3 or yes < 2 * no:  # a clear majority, not a split vote
-            continue
-        name = (stat.get("topicName") or "").lower()
-        for topic, pattern in DTDD_TOPICS:
-            if re.search(pattern, name):
-                topics.add(topic)
-                details.append({"topic": stat.get("topicName"), "yes": yes, "no": no})
-    out = {"topics": [t for t, _ in DTDD_TOPICS if t in topics], "details": details,
-           "url": f"https://www.doesthedogdie.com/media/{int(item['id'])}"}
-    return _store(cache_key, out)
+        if yes >= 3 and yes >= 2 * no and stat.get("topicName"):  # a clear majority, not a split vote
+            stats.append({"topic": stat["topicName"], "yes": yes, "no": no})
+    return _store(cache_key, {"stats": stats, "url": f"https://www.doesthedogdie.com/media/{int(item['id'])}"})
 
 
 async def get_trivia(imdb_id: str | None, tmdb_id: str | None, title: str | None, year: int | None,

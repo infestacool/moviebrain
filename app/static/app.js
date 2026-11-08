@@ -544,9 +544,8 @@ function warningTopics() {
   const shown = (w) => w && (!w.scope || state.filters.scopes[w.scope]);
   for (const w of state.trivia.warnings || []) if (shown(w)) w.topics.forEach((t) => topics.add(t));
   if (shown(state.trivia.dtdd)) state.trivia.dtdd.topics.forEach((t) => topics.add(t));
-  return WARNING_ORDER.filter((t) => topics.has(t));
+  return (state.filters.topics || [...topics]).filter((t) => topics.has(t));
 }
-const WARNING_ORDER = ["Sexual assault", "Self-harm", "Suicide", "Animal harm", "Child harm"];
 
 // IMDb's rating and Parents Guide for what's on screen: the episode or the series in TV view.
 function guideEntry() {
@@ -1199,7 +1198,8 @@ function openGuide() {
     const p = el("p", { className: "guide-warnings" }, "⚠ " + topics.join(", "));
     parts.push(state.showSpoilers ? p : blurred(p, "Tap to see content warnings"));
   } else {
-    parts.push(el("p", { className: "empty-note" }, "None of the topics we watch for (sexual assault, self-harm, suicide, animal or child harm) are flagged."));
+    const watched = (state.filters.topics || []).join(", ").toLowerCase();
+    parts.push(el("p", { className: "empty-note" }, watched ? `Nothing flagged for: ${watched}.` : "No topics are chosen in Settings."));
   }
 
   if (g.guide.length) {

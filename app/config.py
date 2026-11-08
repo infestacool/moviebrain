@@ -34,7 +34,9 @@ FIELDS = {
     "include_wikipedia": ("INCLUDE_WIKIPEDIA", True),
     "omdb_api_key": ("OMDB_API_KEY", ""),       # optional: adds ratings, awards and box office facts
     "include_omdb": ("INCLUDE_OMDB", True),
-    "include_warnings": ("INCLUDE_WARNINGS", True),  # suicide, self-harm, sexual assault, animal and child harm
+    "include_warnings": ("INCLUDE_WARNINGS", True),
+    # Comma-separated topics to warn about: the built-in ones below, or any word or phrase.
+    "warning_topics": ("WARNING_TOPICS", "Sexual assault, Self-harm, Suicide, Animal harm, Child harm"),
     "blur_sensitive_facts": ("BLUR_SENSITIVE_FACTS", True),  # facts that mention those topics
     "blur_death_causes": ("BLUR_DEATH_CAUSES", True),        # cause of death on actor pages
     "include_dtdd": ("INCLUDE_DTDD", False),     # DoesTheDogDie.com community warnings (needs a key)
@@ -192,6 +194,20 @@ def csv(value: str) -> set[str]:
     return {v.strip().lower() for v in value.split(",") if v.strip()}
 
 
+DEFAULT_WARNING_TOPICS = ["Sexual assault", "Self-harm", "Suicide", "Animal harm", "Child harm"]
+MAX_TOPICS, MAX_TOPIC_LENGTH = 30, 40
+
+
+def warning_topics() -> list[str]:
+    """The topics to warn about, as typed (first spelling wins), without repeats."""
+    seen, out = set(), []
+    for topic in (t.strip() for t in str(S.warning_topics or "").split(",")):
+        if topic and len(topic) <= MAX_TOPIC_LENGTH and topic.lower() not in seen:
+            seen.add(topic.lower())
+            out.append(topic)
+    return out[:MAX_TOPICS]
+
+
 def plex_configured() -> bool:
     return bool(S.plex_url and S.plex_token)
 
@@ -213,6 +229,7 @@ def display_choices() -> dict:
         },
         "scopes": {"episode": S.tv_episode_facts, "series": S.tv_series_facts},
         "blur": {"facts": S.include_warnings and S.blur_sensitive_facts, "death_causes": S.blur_death_causes},
+        "topics": warning_topics(),
         "wiki": {k: k not in hidden_wiki for k, _ in WIKI_SECTIONS},
         "goofs": {k: k not in hidden_goofs for k, _ in GOOF_KINDS},
     }

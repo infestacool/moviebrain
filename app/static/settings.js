@@ -106,6 +106,8 @@ async function load() {
   form.querySelector(`input[name=tv_default][value=${tvDefault}]`).checked = true;
   renderChips("wiki-chips", data.groups.wiki, s.hidden_wiki_sections, "hidden_wiki_sections");
   renderChips("goof-chips", data.groups.goofs, s.hidden_goof_kinds, "hidden_goof_kinds");
+  defaultTopics = data.default_warning_topics || [];
+  renderTopics();
   $("oidc-callback").textContent = data.callback_urls.oidc;
   $("auth-env-warning").hidden = !data.auth_disabled_by_env;
   savedAuthMode = s.auth_mode;
@@ -135,6 +137,50 @@ function collect(authMode = chosenAuthMode() === "none" ? "none" : savedAuthMode
   out.auth_mode = authMode;
   return out;
 }
+
+// ---- Content warning topics: chips you can remove, plus a box to add your own ----
+let defaultTopics = [];
+const topicList = () => field("warning_topics").value.split(",").map((t) => t.trim()).filter(Boolean);
+
+function setTopics(list) {
+  const seen = new Set();
+  const unique = list.filter((t) => t.length <= 40 && !seen.has(t.toLowerCase()) && seen.add(t.toLowerCase()));
+  field("warning_topics").value = unique.slice(0, 30).join(", ");
+  renderTopics();
+  scheduleSave(0);
+}
+
+function renderTopics() {
+  const box = $("topic-tags");
+  const list = topicList();
+  box.replaceChildren(...list.map((t) => {
+    const chip = document.createElement("span");
+    chip.className = "tag";
+    chip.textContent = t;
+    const x = document.createElement("button");
+    Object.assign(x, { type: "button", textContent: "×", title: `Remove ${t}` });
+    x.setAttribute("aria-label", `Remove ${t}`);
+    x.onclick = () => setTopics(topicList().filter((v) => v !== t));
+    chip.append(x);
+    return chip;
+  }));
+  if (!list.length) box.textContent = "No topics: nothing will be flagged.";
+  const isDefault = list.join(",").toLowerCase() === defaultTopics.join(",").toLowerCase();
+  $("topic-reset").hidden = isDefault;
+}
+
+function addTopic() {
+  const typed = $("topic-new").value.split(",").map((t) => t.trim()).filter(Boolean);
+  if (!typed.length) return;
+  setTopics([...topicList(), ...typed]);
+  $("topic-new").value = "";
+  $("topic-new").focus();
+}
+$("topic-add").onclick = addTopic;
+$("topic-new").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); addTopic(); }
+});
+$("topic-reset").onclick = () => setTopics([...defaultTopics]);
 
 function scheduleSave(delay) {
   clearTimeout(saveTimer);
